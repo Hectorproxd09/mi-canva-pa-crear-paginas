@@ -1,15 +1,18 @@
 const canvas = document.getElementById("canvas");
 const codePanel = document.getElementById("code");
 
-/* PROPS */
-const inputText = document.getElementById("prop-text");
-const inputSize = document.getElementById("prop-size");
-const inputColor = document.getElementById("prop-color");
+const inputs = {
+  text: document.getElementById("prop-text"),
+  size: document.getElementById("prop-size"),
+  color: document.getElementById("prop-color"),
+  bg: document.getElementById("prop-bg"),
+  font: document.getElementById("prop-font"),
+  link: document.getElementById("prop-link")
+};
 
 let elements = [];
 let selectedId = null;
 
-/* HISTORIAL */
 let history = [];
 let historyIndex = -1;
 
@@ -19,30 +22,40 @@ function saveHistory() {
   historyIndex++;
 }
 
-/* CREAR */
-canvas.addEventListener("click", (e) => {
-  if (e.target !== canvas) return;
-
-  const newEl = {
+/* CREAR ELEMENTOS */
+function addElement(type) {
+  const el = {
     id: Date.now(),
-    text: "Texto",
-    x: e.offsetX,
-    y: e.offsetY,
+    type,
+    text: type === "button" ? "Botón" : "Texto",
+    x: 100,
+    y: 100,
     size: 20,
-    color: "#000000"
+    color: "#000",
+    bg: type === "panel" ? "#ddd" : "transparent",
+    font: "Arial",
+    link: ""
   };
 
-  elements.push(newEl);
+  elements.push(el);
   saveHistory();
   render();
-});
+}
 
 /* RENDER */
 function render() {
   canvas.innerHTML = "";
 
   elements.forEach(el => {
-    const div = document.createElement("div");
+    let div;
+
+    if (el.type === "button") {
+      div = document.createElement("a");
+      div.href = el.link || "#";
+    } else {
+      div = document.createElement("div");
+    }
+
     div.className = "element";
     div.innerText = el.text;
 
@@ -50,18 +63,22 @@ function render() {
     div.style.top = el.y + "px";
     div.style.fontSize = el.size + "px";
     div.style.color = el.color;
+    div.style.background = el.bg;
+    div.style.fontFamily = el.font;
 
-    if (el.id === selectedId) {
-      div.classList.add("selected");
+    if (el.type === "panel") {
+      div.style.width = "150px";
+      div.style.height = "100px";
     }
 
-    /* SELECCION */
-    div.addEventListener("click", (e) => {
+    if (el.id === selectedId) div.classList.add("selected");
+
+    div.onclick = (e) => {
       e.stopPropagation();
       selectedId = el.id;
       updatePanel();
       render();
-    });
+    };
 
     makeDraggable(div, el);
     canvas.appendChild(div);
@@ -74,82 +91,62 @@ function render() {
 function makeDraggable(element, data) {
   let offsetX, offsetY, isDragging = false;
 
-  element.addEventListener("mousedown", (e) => {
+  element.onmousedown = (e) => {
     offsetX = e.offsetX;
     offsetY = e.offsetY;
     isDragging = true;
     selectedId = data.id;
     updatePanel();
-  });
+  };
 
-  document.addEventListener("mousemove", (e) => {
+  document.onmousemove = (e) => {
     if (!isDragging) return;
 
     data.x = e.clientX - canvas.offsetLeft - offsetX;
     data.y = e.clientY - canvas.offsetTop - offsetY;
 
     render();
-  });
+  };
 
-  document.addEventListener("mouseup", () => {
+  document.onmouseup = () => {
     if (isDragging) saveHistory();
     isDragging = false;
-  });
+  };
 }
 
-/* PANEL PROPIEDADES */
+/* PANEL */
 function updatePanel() {
   const el = elements.find(e => e.id === selectedId);
   if (!el) return;
 
-  inputText.value = el.text;
-  inputSize.value = el.size;
-  inputColor.value = el.color;
+  inputs.text.value = el.text;
+  inputs.size.value = el.size;
+  inputs.color.value = el.color;
+  inputs.bg.value = el.bg;
+  inputs.font.value = el.font;
+  inputs.link.value = el.link;
 }
 
 /* INPUTS */
-inputText.addEventListener("input", () => {
-  const el = elements.find(e => e.id === selectedId);
-  if (!el) return;
+Object.keys(inputs).forEach(key => {
+  inputs[key].addEventListener("input", () => {
+    const el = elements.find(e => e.id === selectedId);
+    if (!el) return;
 
-  el.text = inputText.value;
-  render();
+    el[key] = inputs[key].value;
+    render();
+  });
 });
 
-inputSize.addEventListener("input", () => {
-  const el = elements.find(e => e.id === selectedId);
-  if (!el) return;
-
-  el.size = inputSize.value;
-  render();
-});
-
-inputColor.addEventListener("input", () => {
-  const el = elements.find(e => e.id === selectedId);
-  if (!el) return;
-
-  el.color = inputColor.value;
-  render();
-});
-
-/* BORRAR */
+/* DELETE */
 function deleteElement() {
-  if (!selectedId) return;
   elements = elements.filter(e => e.id !== selectedId);
   selectedId = null;
   saveHistory();
   render();
 }
 
-/* TECLAS */
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Delete") deleteElement();
-
-  if (e.ctrlKey && e.key === "z") undo();
-  if (e.ctrlKey && e.key === "y") redo();
-});
-
-/* UNDO */
+/* UNDO/REDO */
 function undo() {
   if (historyIndex <= 0) return;
   historyIndex--;
@@ -157,7 +154,6 @@ function undo() {
   render();
 }
 
-/* REDO */
 function redo() {
   if (historyIndex >= history.length - 1) return;
   historyIndex++;
@@ -165,12 +161,16 @@ function redo() {
   render();
 }
 
-/* HTML */
+/* HTML OUTPUT */
 function updateCode() {
   let html = "";
 
   elements.forEach(el => {
-    html += `<p style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color};">${el.text}</p>\n`;
+    if (el.type === "button") {
+      html += `<a href="${el.link}" style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color}; font-family:${el.font};">${el.text}</a>\n`;
+    } else {
+      html += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color}; background:${el.bg}; font-family:${el.font};">${el.text}</div>\n`;
+    }
   });
 
   codePanel.textContent = html;
