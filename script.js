@@ -19,6 +19,16 @@ let background = {
   url: ""
 };
 
+/* HISTORIAL */
+let history = [];
+let historyIndex = -1;
+
+function saveHistory() {
+  history = history.slice(0, historyIndex + 1);
+  history.push(JSON.stringify(elements));
+  historyIndex++;
+}
+
 /* =========================
    BACKGROUND
 ========================= */
@@ -26,13 +36,9 @@ function setBackground() {
   const url = document.getElementById("bg-url").value.trim();
   if (!url) return;
 
-  if (url.match(/\.(mp4|webm|ogg)$/i)) {
-    background.type = "video";
-  } else {
-    background.type = "image";
-  }
-
+  background.type = url.match(/\.(mp4|webm|ogg)$/i) ? "video" : "image";
   background.url = url;
+
   render();
 }
 
@@ -47,7 +53,7 @@ canvas.addEventListener("click", (e) => {
 });
 
 /* =========================
-   CREAR ELEMENTOS
+   CREAR
 ========================= */
 function addElement(type) {
   let link = "";
@@ -66,9 +72,11 @@ function addElement(type) {
     height: 80,
     size: 20,
     color: "#000000",
-    link
+    link,
+    z: elements.length // 🔥 capa
   });
 
+  saveHistory();
   render();
 }
 
@@ -94,6 +102,9 @@ function render() {
     canvas.style.background = "white";
   }
 
+  /* ORDEN POR Z */
+  elements.sort((a,b) => a.z - b.z);
+
   elements.forEach(el => {
     let div;
 
@@ -110,15 +121,14 @@ function render() {
 
     div.style.left = el.x + "px";
     div.style.top = el.y + "px";
+    div.style.zIndex = el.z;
 
-    /* TEXTO Y BOTÓN */
     if (el.type !== "panel") {
       div.style.fontSize = el.size + "px";
       div.style.color = el.color;
       div.style.background = "transparent";
     }
 
-    /* PANEL */
     if (el.type === "panel") {
       div.style.width = el.width + "px";
       div.style.height = el.height + "px";
@@ -130,14 +140,29 @@ function render() {
       addHandles(div, el);
     }
 
-    /* DOBLE CLICK EDITAR */
+    /* DOBLE CLICK */
     div.ondblclick = (e) => {
       e.stopPropagation();
       const txt = prompt("Editar texto:", el.text);
       if (txt !== null) {
         el.text = txt;
+        saveHistory();
         render();
       }
+    };
+
+    /* CLICK (traer al frente) */
+    div.onclick = (e) => {
+      e.stopPropagation();
+
+      selectedId = el.id;
+
+      // 🔥 subir capa
+      el.z = Math.max(...elements.map(e => e.z)) + 1;
+
+      updatePanel();
+      saveHistory();
+      render();
     };
 
     /* DRAG */
@@ -148,7 +173,6 @@ function render() {
       const offsetY = e.offsetY;
 
       selectedId = el.id;
-      updatePanel();
 
       function move(e2) {
         el.x = e2.clientX - canvas.offsetLeft - offsetX;
@@ -159,18 +183,11 @@ function render() {
       function stop() {
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", stop);
+        saveHistory();
       }
 
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", stop);
-    };
-
-    /* CLICK SELECCIÓN */
-    div.onclick = (e) => {
-      e.stopPropagation();
-      selectedId = el.id;
-      updatePanel();
-      render();
     };
 
     canvas.appendChild(div);
@@ -180,7 +197,7 @@ function render() {
 }
 
 /* =========================
-   HANDLES (RESIZE)
+   HANDLES
 ========================= */
 function addHandles(div, el) {
   const positions = ["br","tr","bl","tl","r","l","t","b"];
@@ -203,7 +220,6 @@ function addHandles(div, el) {
         let dx = e2.clientX - startX;
         let dy = e2.clientY - startY;
 
-        /* PANEL */
         if (el.type === "panel") {
           if (pos.includes("r")) el.width = startW + dx;
           if (pos.includes("l")) el.width = startW - dx;
@@ -211,7 +227,6 @@ function addHandles(div, el) {
           if (pos.includes("t")) el.height = startH - dy;
         }
 
-        /* TEXTO / BOTÓN */
         if (el.type !== "panel") {
           el.size = Math.max(10, startSize + dx * 0.3);
         }
@@ -222,6 +237,7 @@ function addHandles(div, el) {
       function stop() {
         document.removeEventListener("mousemove", resize);
         document.removeEventListener("mouseup", stop);
+        saveHistory();
       }
 
       document.addEventListener("mousemove", resize);
@@ -233,7 +249,7 @@ function addHandles(div, el) {
 }
 
 /* =========================
-   PANEL PROPIEDADES
+   PROPIEDADES
 ========================= */
 function updatePanel() {
   const el = elements.find(e => e.id === selectedId);
@@ -252,12 +268,43 @@ Object.keys(inputs).forEach(k => {
     if (!el) return;
 
     el[k] = inputs[k].value;
+    saveHistory();
     render();
   };
 });
 
 /* =========================
-   GENERAR HTML + CSS
+   ELIMINAR
+========================= */
+function deleteElement() {
+  if (!selectedId) return;
+
+  elements = elements.filter(e => e.id !== selectedId);
+  selectedId = null;
+
+  saveHistory();
+  render();
+}
+
+/* =========================
+   UNDO / REDO
+========================= */
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  elements = JSON.parse(history[historyIndex]);
+  render();
+}
+
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  elements = JSON.parse(history[historyIndex]);
+  render();
+}
+
+/* =========================
+   GENERAR CÓDIGO
 ========================= */
 function generateCode() {
   let html = "";
@@ -276,6 +323,7 @@ function generateCode() {
   position:absolute;
   left:${el.x}px;
   top:${el.y}px;
+  z-index:${el.z};
 }\n`;
 
     if (el.type === "panel") {
@@ -300,4 +348,5 @@ function generateCode() {
 }
 
 /* INIT */
+saveHistory();
 render();
