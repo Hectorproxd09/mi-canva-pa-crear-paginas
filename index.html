@@ -2,25 +2,42 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Mini Canva Builder</title>
+  <title>Mini Canva Pro</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="topbar">
-  <button onclick="undo()">↶ Deshacer</button>
-  <button onclick="redo()">↷ Rehacer</button>
+  <button onclick="undo()">↶</button>
+  <button onclick="redo()">↷</button>
 </div>
 
 <div class="app">
+
   <!-- CANVAS -->
   <div id="canvas"></div>
 
-  <!-- PANEL CODIGO -->
-  <div class="code-panel">
-    <h3>HTML generado</h3>
+  <!-- PANEL PROPIEDADES -->
+  <div class="panel">
+    <h3>Propiedades</h3>
+
+    <label>Texto</label>
+    <input id="prop-text" type="text">
+
+    <label>Tamaño</label>
+    <input id="prop-size" type="number">
+
+    <label>Color</label>
+    <input id="prop-color" type="color">
+
+    <button onclick="deleteElement()">Eliminar</button>
+
+    <hr>
+
+    <h3>HTML</h3>
     <pre id="code"></pre>
   </div>
+
 </div>
 
 <script src="script.js"></script>
