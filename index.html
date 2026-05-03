@@ -1,34 +1,50 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Mini Canva Pro</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<title>Velion Builder</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="topbar">
+  <button onclick="addElement('text')">Texto</button>
+  <button onclick="addElement('button')">Botón</button>
+  <button onclick="addElement('panel')">Panel</button>
+
   <button onclick="undo()">↶</button>
   <button onclick="redo()">↷</button>
 </div>
 
 <div class="app">
 
-  <!-- CANVAS -->
   <div id="canvas"></div>
 
-  <!-- PANEL PROPIEDADES -->
   <div class="panel">
     <h3>Propiedades</h3>
 
     <label>Texto</label>
-    <input id="prop-text" type="text">
+    <input id="prop-text">
 
     <label>Tamaño</label>
     <input id="prop-size" type="number">
 
     <label>Color</label>
     <input id="prop-color" type="color">
+
+    <label>Fondo</label>
+    <input id="prop-bg" type="color">
+
+    <label>Fuente</label>
+    <select id="prop-font">
+      <option value="Arial">Arial</option>
+      <option value="Verdana">Verdana</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Courier New">Courier</option>
+    </select>
+
+    <label>Link (botón)</label>
+    <input id="prop-link">
 
     <button onclick="deleteElement()">Eliminar</button>
 
