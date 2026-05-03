@@ -1,124 +1,98 @@
 const canvas = document.getElementById("canvas");
-const codePanel = document.getElementById("code");
 
-const inputs = {
-  text: document.getElementById("prop-text"),
-  size: document.getElementById("prop-size"),
-  color: document.getElementById("prop-color"),
-  bg: document.getElementById("prop-bg"),
-  link: document.getElementById("prop-link")
-};
+const htmlOut = document.getElementById("html-code");
+const cssOut = document.getElementById("css-code");
 
 let elements = [];
 let selectedId = null;
 
-let history = [];
-let historyIndex = -1;
-
-function saveHistory() {
-  history = history.slice(0, historyIndex + 1);
-  history.push(JSON.stringify(elements));
-  historyIndex++;
-}
-
-/* BACKGROUND */
-function setBackground() {
-  const url = document.getElementById("bg-url").value;
-
-  canvas.style.background = "none";
-
-  if (url.endsWith(".mp4")) {
-    canvas.innerHTML += `<video class="bg-video" autoplay loop muted src="${url}"></video>`;
-  } else {
-    canvas.style.background = `url(${url}) center/cover`;
-  }
-}
-
 /* CREAR */
 function addElement(type) {
-  const el = {
+  elements.push({
     id: Date.now(),
     type,
-    text: type === "button" ? "Botón" : "Texto",
+    text: type === "button" ? "Botón" : "",
     x: 100,
     y: 100,
-    size: 20,
     width: 150,
-    height: 100,
-    color: "#000",
-    bg: "#ddd",
+    height: 80,
+    size: 20,
+    color: "#ffffff",
     link: ""
-  };
+  });
 
-  elements.push(el);
-  saveHistory();
   render();
 }
 
 /* RENDER */
 function render() {
-  canvas.innerHTML = canvas.querySelector(".bg-video")?.outerHTML || "";
+  canvas.innerHTML = "";
 
   elements.forEach(el => {
-    const div = document.createElement(el.type === "button" ? "a" : "div");
+    let div;
 
-    div.className = "element";
-    div.innerText = el.text;
+    if (el.type === "button") {
+      div = document.createElement("a");
+      div.href = el.link || "#";
+      div.className = "element button";
+      div.innerText = el.text;
+    }
+
+    if (el.type === "text") {
+      div = document.createElement("div");
+      div.className = "element text";
+      div.innerText = el.text || "Texto";
+    }
+
+    if (el.type === "panel") {
+      div = document.createElement("div");
+      div.className = "element panel";
+    }
 
     div.style.left = el.x + "px";
     div.style.top = el.y + "px";
-    div.style.fontSize = el.size + "px";
-    div.style.color = el.color;
-    div.style.background = el.bg;
     div.style.width = el.width + "px";
     div.style.height = el.height + "px";
-
-    if (el.type === "button") div.href = el.link;
+    div.style.fontSize = el.size + "px";
+    div.style.color = el.color;
 
     if (el.id === selectedId) {
       div.classList.add("selected");
 
-      /* HANDLE */
       const handle = document.createElement("div");
       handle.className = "handle";
 
-      handle.addEventListener("mousedown", (e) => {
+      handle.onmousedown = (e) => {
         e.stopPropagation();
 
         const startX = e.clientX;
-        const startY = e.clientY;
-
         const startW = el.width;
-        const startH = el.height;
+        const ratio = el.height / el.width;
 
         function resize(e2) {
           let dx = e2.clientX - startX;
-
           el.width = startW + dx;
-          el.height = startH + dx * (startH / startW); // mantener proporción
-
+          el.height = el.width * ratio;
           render();
         }
 
         function stop() {
           document.removeEventListener("mousemove", resize);
           document.removeEventListener("mouseup", stop);
-          saveHistory();
         }
 
         document.addEventListener("mousemove", resize);
         document.addEventListener("mouseup", stop);
-      });
+      };
 
       div.appendChild(handle);
     }
 
     /* DRAG */
-    let offsetX, offsetY;
+    div.onmousedown = (e) => {
+      const offsetX = e.offsetX;
+      const offsetY = e.offsetY;
 
-    div.addEventListener("mousedown", (e) => {
-      offsetX = e.offsetX;
-      offsetY = e.offsetY;
       selectedId = el.id;
 
       function move(e2) {
@@ -130,83 +104,63 @@ function render() {
       function stop() {
         document.removeEventListener("mousemove", move);
         document.removeEventListener("mouseup", stop);
-        saveHistory();
       }
 
       document.addEventListener("mousemove", move);
       document.addEventListener("mouseup", stop);
-    });
-
-    div.addEventListener("click", (e) => {
-      e.stopPropagation();
-      selectedId = el.id;
-      updatePanel();
-      render();
-    });
+    };
 
     canvas.appendChild(div);
   });
 
-  updateCode();
+  generateCode();
 }
 
-/* PANEL */
-function updatePanel() {
-  const el = elements.find(e => e.id === selectedId);
-  if (!el) return;
-
-  inputs.text.value = el.text;
-  inputs.size.value = el.size;
-  inputs.color.value = el.color;
-  inputs.bg.value = el.bg;
-  inputs.link.value = el.link;
-}
-
-/* INPUTS */
-Object.keys(inputs).forEach(key => {
-  inputs[key].addEventListener("input", () => {
-    const el = elements.find(e => e.id === selectedId);
-    if (!el) return;
-
-    el[key] = inputs[key].value;
-    render();
-  });
-});
-
-/* DELETE */
-function deleteElement() {
-  elements = elements.filter(e => e.id !== selectedId);
-  selectedId = null;
-  saveHistory();
-  render();
-}
-
-/* UNDO REDO */
-function undo() {
-  if (historyIndex <= 0) return;
-  historyIndex--;
-  elements = JSON.parse(history[historyIndex]);
-  render();
-}
-
-function redo() {
-  if (historyIndex >= history.length - 1) return;
-  historyIndex++;
-  elements = JSON.parse(history[historyIndex]);
-  render();
-}
-
-/* HTML */
-function updateCode() {
+/* GENERAR HTML + CSS */
+function generateCode() {
   let html = "";
+  let css = "";
 
-  elements.forEach(el => {
-    html += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.width}px; height:${el.height}px; font-size:${el.size}px; color:${el.color}; background:${el.bg};">${el.text}</div>\n`;
+  elements.forEach((el, i) => {
+    const cls = `el${i}`;
+
+    if (el.type === "button") {
+      html += `<a class="${cls}" href="${el.link}">${el.text}</a>\n`;
+    } else {
+      html += `<div class="${cls}">${el.type === "text" ? el.text : ""}</div>\n`;
+    }
+
+    css += `.${cls}{
+  position:absolute;
+  left:${el.x}px;
+  top:${el.y}px;
+  width:${el.width}px;
+  height:${el.height}px;
+  font-size:${el.size}px;
+  color:${el.color};
+}\n`;
+
+    if (el.type === "panel") {
+      css += `.${cls}{
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(10px);
+  border-radius:15px;
+}\n`;
+    }
+
+    if (el.type === "button") {
+      css += `.${cls}{
+  background:white;
+  color:black;
+  padding:10px;
+  border-radius:10px;
+}\n`;
+    }
   });
 
-  codePanel.textContent = html;
+  htmlOut.textContent = html;
+  cssOut.textContent = css;
 }
 
 /* INIT */
-saveHistory();
 render();
