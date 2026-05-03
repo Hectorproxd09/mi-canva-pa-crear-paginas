@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Velion Builder</title>
+<title>Velion Builder PRO+</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,48 +12,30 @@
   <button onclick="addElement('button')">Botón</button>
   <button onclick="addElement('panel')">Panel</button>
 
+  <input id="bg-url" placeholder="URL fondo (img o video)">
+  <button onclick="setBackground()">Aplicar fondo</button>
+
   <button onclick="undo()">↶</button>
   <button onclick="redo()">↷</button>
 </div>
 
 <div class="app">
-
   <div id="canvas"></div>
 
   <div class="panel">
     <h3>Propiedades</h3>
 
-    <label>Texto</label>
-    <input id="prop-text">
-
-    <label>Tamaño</label>
-    <input id="prop-size" type="number">
-
-    <label>Color</label>
+    <input id="prop-text" placeholder="Texto">
+    <input id="prop-size" type="number" placeholder="Tamaño">
     <input id="prop-color" type="color">
-
-    <label>Fondo</label>
     <input id="prop-bg" type="color">
-
-    <label>Fuente</label>
-    <select id="prop-font">
-      <option value="Arial">Arial</option>
-      <option value="Verdana">Verdana</option>
-      <option value="Georgia">Georgia</option>
-      <option value="Courier New">Courier</option>
-    </select>
-
-    <label>Link (botón)</label>
-    <input id="prop-link">
+    <input id="prop-link" placeholder="Link botón">
 
     <button onclick="deleteElement()">Eliminar</button>
 
     <hr>
-
-    <h3>HTML</h3>
     <pre id="code"></pre>
   </div>
-
 </div>
 
 <script src="script.js"></script>
