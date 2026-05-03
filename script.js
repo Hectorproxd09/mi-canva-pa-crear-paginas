@@ -2,9 +2,22 @@ const canvas = document.getElementById("canvas");
 const codePanel = document.getElementById("code");
 
 let elements = [];
+let selectedId = null;
 
-/* CREAR TEXTO */
+/* HISTORIAL */
+let history = [];
+let historyIndex = -1;
+
+function saveHistory() {
+  history = history.slice(0, historyIndex + 1);
+  history.push(JSON.stringify(elements));
+  historyIndex++;
+}
+
+/* CREAR TEXTO SOLO SI NO CLICKEAS UN ELEMENTO */
 canvas.addEventListener("click", (e) => {
+  if (e.target !== canvas) return;
+
   const newEl = {
     id: Date.now(),
     text: "Texto",
@@ -13,6 +26,7 @@ canvas.addEventListener("click", (e) => {
   };
 
   elements.push(newEl);
+  saveHistory();
   render();
 });
 
@@ -25,8 +39,30 @@ function render() {
     div.className = "element";
     div.innerText = el.text;
 
+    if (el.id === selectedId) {
+      div.classList.add("selected");
+    }
+
     div.style.left = el.x + "px";
     div.style.top = el.y + "px";
+
+    /* SELECCIONAR */
+    div.addEventListener("click", (e) => {
+      e.stopPropagation();
+      selectedId = el.id;
+      render();
+    });
+
+    /* EDITAR TEXTO */
+    div.addEventListener("dblclick", (e) => {
+      e.stopPropagation();
+      const newText = prompt("Editar texto:", el.text);
+      if (newText !== null) {
+        el.text = newText;
+        saveHistory();
+        render();
+      }
+    });
 
     makeDraggable(div, el);
 
@@ -41,9 +77,10 @@ function makeDraggable(element, data) {
   let offsetX, offsetY, isDragging = false;
 
   element.addEventListener("mousedown", (e) => {
-    isDragging = true;
     offsetX = e.offsetX;
     offsetY = e.offsetY;
+    isDragging = true;
+    selectedId = data.id;
   });
 
   document.addEventListener("mousemove", (e) => {
@@ -56,8 +93,45 @@ function makeDraggable(element, data) {
   });
 
   document.addEventListener("mouseup", () => {
+    if (isDragging) saveHistory();
     isDragging = false;
   });
+}
+
+/* BORRAR */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Delete" && selectedId) {
+    elements = elements.filter(el => el.id !== selectedId);
+    selectedId = null;
+    saveHistory();
+    render();
+  }
+
+  /* UNDO */
+  if (e.ctrlKey && e.key === "z") {
+    undo();
+  }
+
+  /* REDO */
+  if (e.ctrlKey && e.key === "y") {
+    redo();
+  }
+});
+
+/* UNDO */
+function undo() {
+  if (historyIndex <= 0) return;
+  historyIndex--;
+  elements = JSON.parse(history[historyIndex]);
+  render();
+}
+
+/* REDO */
+function redo() {
+  if (historyIndex >= history.length - 1) return;
+  historyIndex++;
+  elements = JSON.parse(history[historyIndex]);
+  render();
 }
 
 /* GENERAR HTML */
@@ -70,3 +144,7 @@ function updateCode() {
 
   codePanel.textContent = html;
 }
+
+/* INIT */
+saveHistory();
+render();
