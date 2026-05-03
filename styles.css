@@ -1,4 +1,4 @@
-body {
+body { 
   margin: 0;
   font-family: 'Inter', sans-serif;
   background: #0f172a;
@@ -24,6 +24,11 @@ body {
   padding: 6px 12px;
   border-radius: 10px;
   cursor: pointer;
+  transition: 0.2s;
+}
+
+.topbar button:hover {
+  background: rgba(255,255,255,0.2);
 }
 
 /* LAYOUT */
@@ -32,11 +37,12 @@ body {
   height: calc(100vh - 60px);
 }
 
-/* CANVAS */
+/* CANVAS (🔥 FONDO BLANCO FIX) */
 #canvas {
   flex: 1;
   position: relative;
   overflow: hidden;
+  background: white;
 }
 
 /* PANEL UI */
@@ -56,6 +62,7 @@ body {
 /* ELEMENTOS */
 .element {
   position: absolute;
+  user-select: none;
 }
 
 /* TEXTO */
@@ -63,11 +70,12 @@ body {
   background: none;
 }
 
-/* PANEL VIDRIO */
+/* PANEL VIDRIO (mejorado) */
 .panel {
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(12px);
   border-radius: 15px;
+  border: 1px solid rgba(255,255,255,0.2);
 }
 
 /* BOTÓN */
@@ -77,6 +85,7 @@ body {
   padding: 8px 14px;
   border-radius: 10px;
   text-decoration: none;
+  display: inline-block;
 }
 
 /* SELECCIÓN */
@@ -84,13 +93,25 @@ body {
   outline: 2px solid #3b82f6;
 }
 
-/* HANDLE */
+/* 🔥 HANDLES (NUEVOS COMPLETOS) */
 .handle {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   background: white;
+  border: 1px solid black;
   position: absolute;
-  right: -5px;
-  bottom: -5px;
-  cursor: nwse-resize;
+  z-index: 10;
 }
+
+/* ESQUINAS */
+.handle.br { right: -4px; bottom: -4px; cursor: nwse-resize; }
+.handle.tr { right: -4px; top: -4px; cursor: nesw-resize; }
+.handle.bl { left: -4px; bottom: -4px; cursor: nesw-resize; }
+.handle.tl { left: -4px; top: -4px; cursor: nwse-resize; }
+
+/* LADOS */
+.handle.r { right: -4px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+.handle.l { left: -4px; top: 50%; transform: translateY(-50%); cursor: ew-resize; }
+
+.handle.t { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+.handle.b { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
