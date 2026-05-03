@@ -10,15 +10,50 @@ const inputs = {
 const htmlOut = document.getElementById("html-code");
 const cssOut = document.getElementById("css-code");
 
+/* ESTADO */
 let elements = [];
 let selectedId = null;
 
-/* CREAR */
+let background = {
+  type: null,
+  url: ""
+};
+
+/* =========================
+   BACKGROUND
+========================= */
+function setBackground() {
+  const url = document.getElementById("bg-url").value.trim();
+  if (!url) return;
+
+  if (url.match(/\.(mp4|webm|ogg)$/i)) {
+    background.type = "video";
+  } else {
+    background.type = "image";
+  }
+
+  background.url = url;
+  render();
+}
+
+/* =========================
+   DESELECCIÓN
+========================= */
+canvas.addEventListener("click", (e) => {
+  if (e.target === canvas) {
+    selectedId = null;
+    render();
+  }
+});
+
+/* =========================
+   CREAR ELEMENTOS
+========================= */
 function addElement(type) {
   let link = "";
 
   if (type === "button") {
-    link = prompt("Link del botón:", "https://");
+    link = prompt("Link del botón:", "https://") || "";
   }
 
   elements.push({
@@ -37,9 +72,27 @@ function addElement(type) {
   render();
 }
 
-/* RENDER */
+/* =========================
+   RENDER
+========================= */
 function render() {
   canvas.innerHTML = "";
+
+  /* BACKGROUND */
+  if (background.type === "video") {
+    const video = document.createElement("video");
+    video.src = background.url;
+    video.autoplay = true;
+    video.loop = true;
+    video.muted = true;
+    video.className = "bg-video";
+    canvas.appendChild(video);
+    canvas.style.background = "none";
+  } else if (background.type === "image") {
+    canvas.style.background = `url(${background.url}) center/cover no-repeat`;
+  } else {
+    canvas.style.background = "white";
+  }
 
   elements.forEach(el => {
     let div;
@@ -58,14 +111,17 @@ function render() {
     div.style.left = el.x + "px";
     div.style.top = el.y + "px";
 
-    if (el.type === "panel") {
-      div.style.width = el.width + "px";
-      div.style.height = el.height + "px";
-    }
-
+    /* TEXTO Y BOTÓN */
     if (el.type !== "panel") {
       div.style.fontSize = el.size + "px";
       div.style.color = el.color;
+      div.style.background = "transparent";
+    }
+
+    /* PANEL */
+    if (el.type === "panel") {
+      div.style.width = el.width + "px";
+      div.style.height = el.height + "px";
     }
 
     /* SELECCIÓN */
@@ -74,7 +130,7 @@ function render() {
       addHandles(div, el);
     }
 
-    /* DOBLE CLICK EDIT */
+    /* DOBLE CLICK EDITAR */
     div.ondblclick = (e) => {
       e.stopPropagation();
       const txt = prompt("Editar texto:", el.text);
@@ -109,6 +165,7 @@ function render() {
       document.addEventListener("mouseup", stop);
     };
 
+    /* CLICK SELECCIÓN */
     div.onclick = (e) => {
       e.stopPropagation();
       selectedId = el.id;
@@ -122,7 +179,9 @@ function render() {
   generateCode();
 }
 
-/* HANDLES */
+/* =========================
+   HANDLES (RESIZE)
+========================= */
 function addHandles(div, el) {
   const positions = ["br","tr","bl","tl","r","l","t","b"];
 
@@ -144,6 +203,7 @@ function addHandles(div, el) {
         let dx = e2.clientX - startX;
         let dy = e2.clientY - startY;
 
+        /* PANEL */
         if (el.type === "panel") {
           if (pos.includes("r")) el.width = startW + dx;
           if (pos.includes("l")) el.width = startW - dx;
@@ -151,6 +211,7 @@ function addHandles(div, el) {
           if (pos.includes("t")) el.height = startH - dy;
         }
 
+        /* TEXTO / BOTÓN */
         if (el.type !== "panel") {
           el.size = Math.max(10, startSize + dx * 0.3);
         }
@@ -171,7 +232,9 @@ function addHandles(div, el) {
   });
 }
 
-/* PANEL */
+/* =========================
+   PANEL PROPIEDADES
+========================= */
 function updatePanel() {
   const el = elements.find(e => e.id === selectedId);
   if (!el) return;
@@ -193,7 +256,9 @@ Object.keys(inputs).forEach(k => {
   };
 });
 
-/* GENERAR */
+/* =========================
+   GENERAR HTML + CSS
+========================= */
 function generateCode() {
   let html = "";
   let css = "";
