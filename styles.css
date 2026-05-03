@@ -21,10 +21,6 @@ body {
   cursor: pointer;
 }
 
-.topbar button:hover {
-  background: #374151;
-}
-
 /* LAYOUT */
 .app {
   display: flex;
@@ -39,17 +35,19 @@ body {
   cursor: crosshair;
 }
 
-/* PANEL CODIGO */
-.code-panel {
-  width: 400px;
+/* PANEL */
+.panel {
+  width: 300px;
   background: #0f172a;
-  color: #0f0;
+  color: white;
   padding: 15px;
   overflow: auto;
 }
 
-pre {
-  white-space: pre-wrap;
+.panel input {
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 5px;
 }
 
 /* ELEMENTOS */
@@ -57,10 +55,14 @@ pre {
   position: absolute;
   cursor: move;
   user-select: none;
-  padding: 2px 4px;
 }
 
-/* SELECCION */
 .element.selected {
   outline: 2px solid #3b82f6;
+}
+
+/* HTML */
+pre {
+  color: #0f0;
+  white-space: pre-wrap;
 }
