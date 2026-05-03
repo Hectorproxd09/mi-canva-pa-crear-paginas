@@ -14,7 +14,7 @@ function saveHistory() {
   historyIndex++;
 }
 
-/* CREAR TEXTO SOLO SI NO CLICKEAS UN ELEMENTO */
+/* CREAR TEXTO */
 canvas.addEventListener("click", (e) => {
   if (e.target !== canvas) return;
 
@@ -53,7 +53,7 @@ function render() {
       render();
     });
 
-    /* EDITAR TEXTO */
+    /* EDITAR */
     div.addEventListener("dblclick", (e) => {
       e.stopPropagation();
       const newText = prompt("Editar texto:", el.text);
@@ -98,8 +98,9 @@ function makeDraggable(element, data) {
   });
 }
 
-/* BORRAR */
+/* TECLAS */
 document.addEventListener("keydown", (e) => {
+  /* BORRAR */
   if (e.key === "Delete" && selectedId) {
     elements = elements.filter(el => el.id !== selectedId);
     selectedId = null;
@@ -109,11 +110,13 @@ document.addEventListener("keydown", (e) => {
 
   /* UNDO */
   if (e.ctrlKey && e.key === "z") {
+    e.preventDefault();
     undo();
   }
 
   /* REDO */
   if (e.ctrlKey && e.key === "y") {
+    e.preventDefault();
     redo();
   }
 });
