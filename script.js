@@ -6,7 +6,6 @@ const inputs = {
   size: document.getElementById("prop-size"),
   color: document.getElementById("prop-color"),
   bg: document.getElementById("prop-bg"),
-  font: document.getElementById("prop-font"),
   link: document.getElementById("prop-link")
 };
 
@@ -22,7 +21,20 @@ function saveHistory() {
   historyIndex++;
 }
 
-/* CREAR ELEMENTOS */
+/* BACKGROUND */
+function setBackground() {
+  const url = document.getElementById("bg-url").value;
+
+  canvas.style.background = "none";
+
+  if (url.endsWith(".mp4")) {
+    canvas.innerHTML += `<video class="bg-video" autoplay loop muted src="${url}"></video>`;
+  } else {
+    canvas.style.background = `url(${url}) center/cover`;
+  }
+}
+
+/* CREAR */
 function addElement(type) {
   const el = {
     id: Date.now(),
@@ -31,9 +43,10 @@ function addElement(type) {
     x: 100,
     y: 100,
     size: 20,
+    width: 150,
+    height: 100,
     color: "#000",
-    bg: type === "panel" ? "#ddd" : "transparent",
-    font: "Arial",
+    bg: "#ddd",
     link: ""
   };
 
@@ -44,17 +57,10 @@ function addElement(type) {
 
 /* RENDER */
 function render() {
-  canvas.innerHTML = "";
+  canvas.innerHTML = canvas.querySelector(".bg-video")?.outerHTML || "";
 
   elements.forEach(el => {
-    let div;
-
-    if (el.type === "button") {
-      div = document.createElement("a");
-      div.href = el.link || "#";
-    } else {
-      div = document.createElement("div");
-    }
+    const div = document.createElement(el.type === "button" ? "a" : "div");
 
     div.className = "element";
     div.innerText = el.text;
@@ -64,54 +70,84 @@ function render() {
     div.style.fontSize = el.size + "px";
     div.style.color = el.color;
     div.style.background = el.bg;
-    div.style.fontFamily = el.font;
+    div.style.width = el.width + "px";
+    div.style.height = el.height + "px";
 
-    if (el.type === "panel") {
-      div.style.width = "150px";
-      div.style.height = "100px";
+    if (el.type === "button") div.href = el.link;
+
+    if (el.id === selectedId) {
+      div.classList.add("selected");
+
+      /* HANDLE */
+      const handle = document.createElement("div");
+      handle.className = "handle";
+
+      handle.addEventListener("mousedown", (e) => {
+        e.stopPropagation();
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+
+        const startW = el.width;
+        const startH = el.height;
+
+        function resize(e2) {
+          let dx = e2.clientX - startX;
+
+          el.width = startW + dx;
+          el.height = startH + dx * (startH / startW); // mantener proporción
+
+          render();
+        }
+
+        function stop() {
+          document.removeEventListener("mousemove", resize);
+          document.removeEventListener("mouseup", stop);
+          saveHistory();
+        }
+
+        document.addEventListener("mousemove", resize);
+        document.addEventListener("mouseup", stop);
+      });
+
+      div.appendChild(handle);
     }
 
-    if (el.id === selectedId) div.classList.add("selected");
+    /* DRAG */
+    let offsetX, offsetY;
 
-    div.onclick = (e) => {
+    div.addEventListener("mousedown", (e) => {
+      offsetX = e.offsetX;
+      offsetY = e.offsetY;
+      selectedId = el.id;
+
+      function move(e2) {
+        el.x = e2.clientX - canvas.offsetLeft - offsetX;
+        el.y = e2.clientY - canvas.offsetTop - offsetY;
+        render();
+      }
+
+      function stop() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", stop);
+        saveHistory();
+      }
+
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", stop);
+    });
+
+    div.addEventListener("click", (e) => {
       e.stopPropagation();
       selectedId = el.id;
       updatePanel();
       render();
-    };
+    });
 
-    makeDraggable(div, el);
     canvas.appendChild(div);
   });
 
   updateCode();
-}
-
-/* DRAG */
-function makeDraggable(element, data) {
-  let offsetX, offsetY, isDragging = false;
-
-  element.onmousedown = (e) => {
-    offsetX = e.offsetX;
-    offsetY = e.offsetY;
-    isDragging = true;
-    selectedId = data.id;
-    updatePanel();
-  };
-
-  document.onmousemove = (e) => {
-    if (!isDragging) return;
-
-    data.x = e.clientX - canvas.offsetLeft - offsetX;
-    data.y = e.clientY - canvas.offsetTop - offsetY;
-
-    render();
-  };
-
-  document.onmouseup = () => {
-    if (isDragging) saveHistory();
-    isDragging = false;
-  };
 }
 
 /* PANEL */
@@ -123,7 +159,6 @@ function updatePanel() {
   inputs.size.value = el.size;
   inputs.color.value = el.color;
   inputs.bg.value = el.bg;
-  inputs.font.value = el.font;
   inputs.link.value = el.link;
 }
 
@@ -146,7 +181,7 @@ function deleteElement() {
   render();
 }
 
-/* UNDO/REDO */
+/* UNDO REDO */
 function undo() {
   if (historyIndex <= 0) return;
   historyIndex--;
@@ -161,16 +196,12 @@ function redo() {
   render();
 }
 
-/* HTML OUTPUT */
+/* HTML */
 function updateCode() {
   let html = "";
 
   elements.forEach(el => {
-    if (el.type === "button") {
-      html += `<a href="${el.link}" style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color}; font-family:${el.font};">${el.text}</a>\n`;
-    } else {
-      html += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color}; background:${el.bg}; font-family:${el.font};">${el.text}</div>\n`;
-    }
+    html += `<div style="position:absolute; left:${el.x}px; top:${el.y}px; width:${el.width}px; height:${el.height}px; font-size:${el.size}px; color:${el.color}; background:${el.bg};">${el.text}</div>\n`;
   });
 
   codePanel.textContent = html;
