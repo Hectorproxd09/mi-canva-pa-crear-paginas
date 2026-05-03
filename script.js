@@ -19,6 +19,8 @@ let background = {
   url: ""
 };
 
+let snapEnabled = false;
+
 /* HISTORIAL */
 let history = [];
 let historyIndex = -1;
@@ -27,6 +29,13 @@ function saveHistory() {
   history = history.slice(0, historyIndex + 1);
   history.push(JSON.stringify(elements));
   historyIndex++;
+}
+
+/* =========================
+   SNAP TOGGLE
+========================= */
+function toggleSnap() {
+  snapEnabled = !snapEnabled;
 }
 
 /* =========================
@@ -73,11 +82,30 @@ function addElement(type) {
     size: 20,
     color: "#000000",
     link,
-    z: elements.length // 🔥 capa
+    z: elements.length
   });
 
   saveHistory();
   render();
+}
+
+/* =========================
+   FONDO INTELIGENTE
+========================= */
+function applySmartBackground() {
+  if (background.type !== "image") return;
+
+  const img = new Image();
+  img.src = background.url;
+
+  img.onload = () => {
+    const imgRatio = img.width / img.height;
+    const canvasRatio = canvas.clientWidth / canvas.clientHeight;
+
+    const mode = imgRatio > canvasRatio ? "contain" : "cover";
+
+    canvas.style.background = `url(${background.url}) center/${mode} no-repeat`;
+  };
 }
 
 /* =========================
@@ -97,12 +125,12 @@ function render() {
     canvas.appendChild(video);
     canvas.style.background = "none";
   } else if (background.type === "image") {
-    canvas.style.background = `url(${background.url}) center/cover no-repeat`;
+    applySmartBackground();
   } else {
     canvas.style.background = "white";
   }
 
-  /* ORDEN POR Z */
+  /* ORDEN */
   elements.sort((a,b) => a.z - b.z);
 
   elements.forEach(el => {
@@ -134,13 +162,12 @@ function render() {
       div.style.height = el.height + "px";
     }
 
-    /* SELECCIÓN */
     if (el.id === selectedId) {
       div.classList.add("selected");
       addHandles(div, el);
     }
 
-    /* DOBLE CLICK */
+    /* EDIT */
     div.ondblclick = (e) => {
       e.stopPropagation();
       const txt = prompt("Editar texto:", el.text);
@@ -151,15 +178,11 @@ function render() {
       }
     };
 
-    /* CLICK (traer al frente) */
+    /* CLICK */
     div.onclick = (e) => {
       e.stopPropagation();
-
       selectedId = el.id;
-
-      // 🔥 subir capa
       el.z = Math.max(...elements.map(e => e.z)) + 1;
-
       updatePanel();
       saveHistory();
       render();
@@ -175,8 +198,23 @@ function render() {
       selectedId = el.id;
 
       function move(e2) {
-        el.x = e2.clientX - canvas.offsetLeft - offsetX;
-        el.y = e2.clientY - canvas.offsetTop - offsetY;
+        let newX = e2.clientX - canvas.offsetLeft - offsetX;
+        let newY = e2.clientY - canvas.offsetTop - offsetY;
+
+        if (snapEnabled) {
+          const snap = 10;
+
+          elements.forEach(other => {
+            if (other.id !== el.id) {
+              if (Math.abs(newX - other.x) < snap) newX = other.x;
+              if (Math.abs(newY - other.y) < snap) newY = other.y;
+            }
+          });
+        }
+
+        el.x = newX;
+        el.y = newY;
+
         render();
       }
 
@@ -261,7 +299,6 @@ function updatePanel() {
   inputs.link.value = el.link;
 }
 
-/* INPUTS */
 Object.keys(inputs).forEach(k => {
   inputs[k].oninput = () => {
     const el = elements.find(e => e.id === selectedId);
@@ -304,7 +341,7 @@ function redo() {
 }
 
 /* =========================
-   GENERAR CÓDIGO
+   GENERAR
 ========================= */
 function generateCode() {
   let html = "";
