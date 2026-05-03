@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Velion Builder PRO+</title>
+<title>Velion Builder</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
   <button onclick="addElement('button')">Botón</button>
   <button onclick="addElement('panel')">Panel</button>
 
-  <input id="bg-url" placeholder="URL fondo (img o video)">
-  <button onclick="setBackground()">Aplicar fondo</button>
+  <input id="bg-url" placeholder="Fondo (img o video)">
+  <button onclick="setBackground()">Aplicar</button>
 
   <button onclick="undo()">↶</button>
   <button onclick="redo()">↷</button>
@@ -22,19 +22,23 @@
 <div class="app">
   <div id="canvas"></div>
 
-  <div class="panel">
+  <div class="panel-ui">
     <h3>Propiedades</h3>
 
     <input id="prop-text" placeholder="Texto">
-    <input id="prop-size" type="number" placeholder="Tamaño">
+    <input id="prop-size" type="number">
     <input id="prop-color" type="color">
-    <input id="prop-bg" type="color">
-    <input id="prop-link" placeholder="Link botón">
+    <input id="prop-link" placeholder="Link">
 
     <button onclick="deleteElement()">Eliminar</button>
 
     <hr>
-    <pre id="code"></pre>
+
+    <h3>HTML</h3>
+    <pre id="html-code"></pre>
+
+    <h3>CSS</h3>
+    <pre id="css-code"></pre>
   </div>
 </div>
 
