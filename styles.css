@@ -37,7 +37,7 @@ body {
   height: calc(100vh - 60px);
 }
 
-/* CANVAS (🔥 FONDO BLANCO FIX) */
+/* CANVAS */
 #canvas {
   flex: 1;
   position: relative;
@@ -73,6 +73,7 @@ body {
 .element {
   position: absolute;
   user-select: none;
+  z-index: 1; /* 🔥 asegura que estén sobre el fondo */
 }
 
 /* TEXTO */
@@ -126,3 +127,21 @@ body {
 
 .handle.t { top: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
 .handle.b { bottom: -4px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+
+/* 🔥 SNAP GUIDES (nuevo) */
+.guide {
+  position: absolute;
+  background: rgba(255, 0, 0, 0.6);
+  z-index: 999;
+  pointer-events: none;
+}
+
+.guide.v {
+  width: 1px;
+  height: 100%;
+}
+
+.guide.h {
+  height: 1px;
+  width: 100%;
+}
