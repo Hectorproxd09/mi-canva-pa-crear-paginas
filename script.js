@@ -1,6 +1,11 @@
 const canvas = document.getElementById("canvas");
 const codePanel = document.getElementById("code");
 
+/* PROPS */
+const inputText = document.getElementById("prop-text");
+const inputSize = document.getElementById("prop-size");
+const inputColor = document.getElementById("prop-color");
+
 let elements = [];
 let selectedId = null;
 
@@ -14,7 +19,7 @@ function saveHistory() {
   historyIndex++;
 }
 
-/* CREAR TEXTO */
+/* CREAR */
 canvas.addEventListener("click", (e) => {
   if (e.target !== canvas) return;
 
@@ -22,7 +27,9 @@ canvas.addEventListener("click", (e) => {
     id: Date.now(),
     text: "Texto",
     x: e.offsetX,
-    y: e.offsetY
+    y: e.offsetY,
+    size: 20,
+    color: "#000000"
   };
 
   elements.push(newEl);
@@ -39,33 +46,24 @@ function render() {
     div.className = "element";
     div.innerText = el.text;
 
+    div.style.left = el.x + "px";
+    div.style.top = el.y + "px";
+    div.style.fontSize = el.size + "px";
+    div.style.color = el.color;
+
     if (el.id === selectedId) {
       div.classList.add("selected");
     }
 
-    div.style.left = el.x + "px";
-    div.style.top = el.y + "px";
-
-    /* SELECCIONAR */
+    /* SELECCION */
     div.addEventListener("click", (e) => {
       e.stopPropagation();
       selectedId = el.id;
+      updatePanel();
       render();
     });
 
-    /* EDITAR */
-    div.addEventListener("dblclick", (e) => {
-      e.stopPropagation();
-      const newText = prompt("Editar texto:", el.text);
-      if (newText !== null) {
-        el.text = newText;
-        saveHistory();
-        render();
-      }
-    });
-
     makeDraggable(div, el);
-
     canvas.appendChild(div);
   });
 
@@ -81,6 +79,7 @@ function makeDraggable(element, data) {
     offsetY = e.offsetY;
     isDragging = true;
     selectedId = data.id;
+    updatePanel();
   });
 
   document.addEventListener("mousemove", (e) => {
@@ -98,27 +97,56 @@ function makeDraggable(element, data) {
   });
 }
 
+/* PANEL PROPIEDADES */
+function updatePanel() {
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) return;
+
+  inputText.value = el.text;
+  inputSize.value = el.size;
+  inputColor.value = el.color;
+}
+
+/* INPUTS */
+inputText.addEventListener("input", () => {
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) return;
+
+  el.text = inputText.value;
+  render();
+});
+
+inputSize.addEventListener("input", () => {
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) return;
+
+  el.size = inputSize.value;
+  render();
+});
+
+inputColor.addEventListener("input", () => {
+  const el = elements.find(e => e.id === selectedId);
+  if (!el) return;
+
+  el.color = inputColor.value;
+  render();
+});
+
+/* BORRAR */
+function deleteElement() {
+  if (!selectedId) return;
+  elements = elements.filter(e => e.id !== selectedId);
+  selectedId = null;
+  saveHistory();
+  render();
+}
+
 /* TECLAS */
 document.addEventListener("keydown", (e) => {
-  /* BORRAR */
-  if (e.key === "Delete" && selectedId) {
-    elements = elements.filter(el => el.id !== selectedId);
-    selectedId = null;
-    saveHistory();
-    render();
-  }
+  if (e.key === "Delete") deleteElement();
 
-  /* UNDO */
-  if (e.ctrlKey && e.key === "z") {
-    e.preventDefault();
-    undo();
-  }
-
-  /* REDO */
-  if (e.ctrlKey && e.key === "y") {
-    e.preventDefault();
-    redo();
-  }
+  if (e.ctrlKey && e.key === "z") undo();
+  if (e.ctrlKey && e.key === "y") redo();
 });
 
 /* UNDO */
@@ -137,12 +165,12 @@ function redo() {
   render();
 }
 
-/* GENERAR HTML */
+/* HTML */
 function updateCode() {
   let html = "";
 
   elements.forEach(el => {
-    html += `<p style="position:absolute; left:${el.x}px; top:${el.y}px;">${el.text}</p>\n`;
+    html += `<p style="position:absolute; left:${el.x}px; top:${el.y}px; font-size:${el.size}px; color:${el.color};">${el.text}</p>\n`;
   });
 
   codePanel.textContent = html;
