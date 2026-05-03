@@ -7,17 +7,18 @@
 </head>
 <body>
 
-<div class="app">
+<div class="topbar">
+  <button onclick="undo()">↶ Deshacer</button>
+  <button onclick="redo()">↷ Rehacer</button>
+</div>
 
-  <!-- CANVAS -->
+<div class="app">
   <div id="canvas"></div>
 
-  <!-- PANEL CODIGO -->
   <div class="code-panel">
     <h3>HTML generado</h3>
     <pre id="code"></pre>
   </div>
-
 </div>
 
 <script src="script.js"></script>
