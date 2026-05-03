@@ -8,6 +8,12 @@ let selectedId = null;
 
 /* CREAR */
 function addElement(type) {
+  let link = "";
+
+  if (type === "button") {
+    link = prompt("Ingresa el link del botón:", "https://");
+  }
+
   elements.push({
     id: Date.now(),
     type,
@@ -18,7 +24,7 @@ function addElement(type) {
     height: 80,
     size: 20,
     color: "#ffffff",
-    link: ""
+    link: link || ""
   });
 
   render();
@@ -51,11 +57,20 @@ function render() {
 
     div.style.left = el.x + "px";
     div.style.top = el.y + "px";
-    div.style.width = el.width + "px";
-    div.style.height = el.height + "px";
-    div.style.fontSize = el.size + "px";
-    div.style.color = el.color;
 
+    /* TEXTO */
+    if (el.type === "text" || el.type === "button") {
+      div.style.fontSize = el.size + "px";
+      div.style.color = el.color;
+    }
+
+    /* PANEL */
+    if (el.type === "panel") {
+      div.style.width = el.width + "px";
+      div.style.height = el.height + "px";
+    }
+
+    /* SELECCIÓN */
     if (el.id === selectedId) {
       div.classList.add("selected");
 
@@ -67,12 +82,23 @@ function render() {
 
         const startX = e.clientX;
         const startW = el.width;
-        const ratio = el.height / el.width;
+        const startH = el.height;
+        const startSize = el.size;
 
         function resize(e2) {
           let dx = e2.clientX - startX;
-          el.width = startW + dx;
-          el.height = el.width * ratio;
+
+          if (el.type === "panel") {
+            // libre
+            el.width = startW + dx;
+            el.height = startH + (e2.clientY - startX);
+          }
+
+          if (el.type === "text" || el.type === "button") {
+            // cambia tamaño fuente
+            el.size = Math.max(10, startSize + dx * 0.3);
+          }
+
           render();
         }
 
@@ -90,6 +116,8 @@ function render() {
 
     /* DRAG */
     div.onmousedown = (e) => {
+      e.preventDefault(); // 🔥 evita abrir link
+
       const offsetX = e.offsetX;
       const offsetY = e.offsetY;
 
@@ -126,34 +154,43 @@ function generateCode() {
 
     if (el.type === "button") {
       html += `<a class="${cls}" href="${el.link}">${el.text}</a>\n`;
+    } else if (el.type === "text") {
+      html += `<div class="${cls}">${el.text}</div>\n`;
     } else {
-      html += `<div class="${cls}">${el.type === "text" ? el.text : ""}</div>\n`;
+      html += `<div class="${cls}"></div>\n`;
     }
 
     css += `.${cls}{
   position:absolute;
   left:${el.x}px;
   top:${el.y}px;
-  width:${el.width}px;
-  height:${el.height}px;
-  font-size:${el.size}px;
-  color:${el.color};
 }\n`;
 
     if (el.type === "panel") {
       css += `.${cls}{
+  width:${el.width}px;
+  height:${el.height}px;
   background: rgba(255,255,255,0.1);
   backdrop-filter: blur(10px);
   border-radius:15px;
 }\n`;
     }
 
+    if (el.type === "text") {
+      css += `.${cls}{
+  font-size:${el.size}px;
+  color:${el.color};
+}\n`;
+    }
+
     if (el.type === "button") {
       css += `.${cls}{
+  font-size:${el.size}px;
   background:white;
   color:black;
   padding:10px;
   border-radius:10px;
+  text-decoration:none;
 }\n`;
     }
   });
