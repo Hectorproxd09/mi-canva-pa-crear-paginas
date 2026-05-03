@@ -1,3 +1,9 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+/* TOPBAR */
 .topbar {
   height: 50px;
   background: #111827;
@@ -15,6 +21,46 @@
   cursor: pointer;
 }
 
+.topbar button:hover {
+  background: #374151;
+}
+
+/* LAYOUT */
+.app {
+  display: flex;
+  height: calc(100vh - 50px);
+}
+
+/* CANVAS */
+#canvas {
+  flex: 1;
+  background: #f1f5f9;
+  position: relative;
+  cursor: crosshair;
+}
+
+/* PANEL CODIGO */
+.code-panel {
+  width: 400px;
+  background: #0f172a;
+  color: #0f0;
+  padding: 15px;
+  overflow: auto;
+}
+
+pre {
+  white-space: pre-wrap;
+}
+
+/* ELEMENTOS */
+.element {
+  position: absolute;
+  cursor: move;
+  user-select: none;
+  padding: 2px 4px;
+}
+
+/* SELECCION */
 .element.selected {
   outline: 2px solid #3b82f6;
 }
