@@ -1,68 +1,54 @@
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
+  font-family: Arial;
 }
 
-/* TOPBAR */
 .topbar {
   height: 50px;
-  background: #111827;
+  background: #111;
   display: flex;
   align-items: center;
-  padding: 10px;
   gap: 10px;
+  padding: 10px;
 }
 
 .topbar button {
-  background: #1f2937;
+  background: #222;
   color: white;
   border: none;
-  padding: 6px 12px;
+  padding: 6px 10px;
   cursor: pointer;
 }
 
-/* LAYOUT */
 .app {
   display: flex;
   height: calc(100vh - 50px);
 }
 
-/* CANVAS */
 #canvas {
   flex: 1;
   background: #f1f5f9;
   position: relative;
-  cursor: crosshair;
 }
 
-/* PANEL */
 .panel {
   width: 300px;
   background: #0f172a;
   color: white;
-  padding: 15px;
+  padding: 10px;
   overflow: auto;
 }
 
-.panel input {
+.panel input, .panel select {
   width: 100%;
   margin-bottom: 10px;
-  padding: 5px;
 }
 
-/* ELEMENTOS */
 .element {
   position: absolute;
   cursor: move;
-  user-select: none;
 }
 
-.element.selected {
-  outline: 2px solid #3b82f6;
-}
-
-/* HTML */
-pre {
-  color: #0f0;
-  white-space: pre-wrap;
+.selected {
+  outline: 2px solid blue;
 }
