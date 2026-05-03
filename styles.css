@@ -1,0 +1,37 @@
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* CANVAS */
+#canvas {
+  flex: 1;
+  background: #f1f5f9;
+  position: relative;
+  cursor: crosshair;
+}
+
+/* PANEL */
+.code-panel {
+  width: 400px;
+  background: #0f172a;
+  color: #0f0;
+  padding: 15px;
+  overflow: auto;
+}
+
+pre {
+  white-space: pre-wrap;
+}
+
+/* ELEMENTOS */
+.element {
+  position: absolute;
+  cursor: move;
+  user-select: none;
+}
