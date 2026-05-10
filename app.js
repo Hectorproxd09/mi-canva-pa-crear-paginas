@@ -4,14 +4,40 @@
 
 const STORAGE_KEY = "visual-web-studio-state-v1";
 
-/** @typedef {{ id: string; title: string; subtitle: string; bgColor: string; bgGradient: string; bgImageDataUrl: string | null; products: { name: string; price: string }[] }} Screen */
+/** @typedef {{ title: string; body: string; glass: boolean; blur: number; opacity: number }} ContentPanel */
+/** @typedef {{ id: string; title: string; subtitle: string; bgColor: string; bgGradient: string; bgImageDataUrl: string | null; products: { name: string; price: string }[]; panels: ContentPanel[] }} Screen */
 /** @typedef {{ id: string; label: string; targetScreenId: string }} MenuItem */
+/** @typedef {{ stretch: boolean; paddingX: number; paddingY: number; gap: number; minWidth: number }} NavStyle */
 
-/** @type {{ screens: Screen[]; menu: MenuItem[]; previewScreenId: string; editScreenId: string; editMenuId: string | null }} */
+/** @type {{ screens: Screen[]; menu: MenuItem[]; navStyle: NavStyle; previewScreenId: string; editScreenId: string; editMenuId: string | null }} */
 let state = loadState() || defaultState();
+
+function defaultNavStyle() {
+  return { stretch: false, paddingX: 0.9, paddingY: 0.45, gap: 0.35, minWidth: 0 };
+}
+
+function normalizePanel(p) {
+  return {
+    title: p.title ?? "",
+    body: p.body ?? "",
+    glass: p.glass !== false,
+    blur: typeof p.blur === "number" ? clamp(p.blur, 0, 48) : 12,
+    opacity: typeof p.opacity === "number" ? clamp(p.opacity, 0, 1) : 0.22,
+  };
+}
+
+function migrateState(st) {
+  st.navStyle = { ...defaultNavStyle(), ...(st.navStyle || {}) };
+  st.screens.forEach((s) => {
+    if (!Array.isArray(s.panels)) s.panels = [];
+    s.panels = s.panels.map(normalizePanel);
+  });
+  return st;
+}
 
 function defaultState() {
   return {
+    navStyle: defaultNavStyle(),
     screens: [
       {
         id: "inicio",
@@ -20,6 +46,15 @@ function defaultState() {
         bgColor: "#1a1a2e",
         bgGradient: "linear-gradient(160deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%)",
         bgImageDataUrl: null,
+        panels: [
+          {
+            title: "Panel con efecto cristal",
+            body: "Fondo semitransparente y desenfoque. Edita blur y opacidad en el panel derecho, o añade más paneles.",
+            glass: true,
+            blur: 14,
+            opacity: 0.2,
+          },
+        ],
         products: [],
       },
       {
@@ -29,6 +64,7 @@ function defaultState() {
         bgColor: "#1b4332",
         bgGradient: "linear-gradient(145deg, #1b4332, #2d6a4f)",
         bgImageDataUrl: null,
+        panels: [],
         products: [
           { name: "Plan Básico", price: "9 €/mes" },
           { name: "Plan Pro", price: "29 €/mes" },
@@ -52,7 +88,7 @@ function loadState() {
     const parsed = JSON.parse(raw);
     if (!parsed.screens?.length) return null;
     if (!parsed.editMenuId && parsed.menu?.length) parsed.editMenuId = parsed.menu[0].id;
-    return parsed;
+    return migrateState(parsed);
   } catch {
     return null;
   }
@@ -82,6 +118,52 @@ function uniqueScreenId(base) {
     id = `${base}-${n++}`;
   }
   return id;
+}
+
+function clamp(n, lo, hi) {
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function applyNavStyleToElement(nav) {
+  const ns = state.navStyle;
+  nav.style.gap = `${ns.gap}rem`;
+  nav.classList.toggle("nav-stretch", ns.stretch);
+  nav.querySelectorAll("button").forEach((btn) => {
+    btn.style.padding = `${ns.paddingY}rem ${ns.paddingX}rem`;
+    if (ns.stretch) {
+      btn.style.flex = "1 1 0";
+      btn.style.minWidth = ns.minWidth > 0 ? `${ns.minWidth}px` : "0";
+    } else {
+      btn.style.flex = "";
+      btn.style.minWidth = ns.minWidth > 0 ? `${ns.minWidth}px` : "";
+    }
+  });
+}
+
+function renderContentPanelsPreview(container, s) {
+  if (!s.panels?.length) return;
+  const wrap = document.createElement("div");
+  wrap.className = "content-panels";
+  s.panels.forEach((pan) => {
+    const el = document.createElement("section");
+    el.className = "content-panel" + (pan.glass ? "" : " panel-solid");
+    const op = clamp(pan.opacity, 0, 1);
+    const blur = clamp(pan.blur, 0, 48);
+    if (pan.glass) {
+      el.style.background = `rgba(12, 18, 28, ${op})`;
+      el.style.backdropFilter = `blur(${blur}px)`;
+      el.style.webkitBackdropFilter = `blur(${blur}px)`;
+      el.style.border = "1px solid rgba(255, 255, 255, 0.15)";
+    }
+    const h3 = document.createElement("h3");
+    h3.textContent = pan.title;
+    const p = document.createElement("p");
+    p.textContent = pan.body;
+    el.appendChild(h3);
+    el.appendChild(p);
+    wrap.appendChild(el);
+  });
+  container.appendChild(wrap);
 }
 
 /* ---------- Render lists ---------- */
@@ -260,6 +342,7 @@ function renderPreview() {
     });
     nav.appendChild(btn);
   });
+  applyNavStyleToElement(nav);
   inner.appendChild(nav);
 
   state.screens.forEach((s) => {
@@ -277,6 +360,8 @@ function renderPreview() {
     head.appendChild(h2);
     head.appendChild(p);
     section.appendChild(head);
+
+    renderContentPanelsPreview(section, s);
 
     if (s.products?.length) {
       const grid = document.createElement("div");
@@ -322,6 +407,7 @@ function fillEditForm() {
   gradInput.value = s.bgGradient || "";
   urlInput.value = "";
 
+  renderPanelBlockEditors();
   renderProductEditors();
 }
 
@@ -352,6 +438,86 @@ function renderProductEditors() {
       persist();
     });
   });
+}
+
+function renderPanelBlockEditors() {
+  const s = screenById(state.editScreenId);
+  const ul = document.getElementById("panel-blocks-editor-list");
+  ul.innerHTML = "";
+  if (!s) return;
+  if (!Array.isArray(s.panels)) s.panels = [];
+  s.panels.forEach((pan, idx) => {
+    const li = document.createElement("li");
+    li.className = "panel-block-editor-item";
+    li.innerHTML = `
+      <div class="panel-block-editor-head"><span>Panel ${idx + 1}</span><button type="button" class="icon-btn rm-panel" data-i="${idx}">×</button></div>
+      <label class="field"><span>Título</span><input type="text" class="panel-title" data-i="${idx}" value="${escapeAttr(pan.title)}" /></label>
+      <label class="field"><span>Texto</span><textarea class="panel-body" data-i="${idx}" rows="2"></textarea></label>
+      <label class="field check-field"><span class="check-row"><input type="checkbox" class="panel-glass" data-i="${idx}" ${pan.glass ? "checked" : ""} /> Efecto cristal (transparente + difuminado)</span></label>
+      <div class="panel-block-glass-opts" data-glass-opts="${idx}">
+        <label>Desenfoque (blur) <output class="panel-blur-out" data-i="${idx}"></output><input type="range" class="panel-blur" data-i="${idx}" min="0" max="40" step="1" value="${pan.blur}" /></label>
+        <label>Opacidad del fondo <output class="panel-op-out" data-i="${idx}"></output><input type="range" class="panel-op" data-i="${idx}" min="0.05" max="0.85" step="0.01" value="${pan.opacity}" /></label>
+      </div>
+    `;
+    ul.appendChild(li);
+    const ta = li.querySelector(".panel-body");
+    if (ta) ta.value = pan.body;
+  });
+
+  ul.querySelectorAll(".panel-title").forEach((inp) => inp.addEventListener("input", onPanelFieldInput));
+  ul.querySelectorAll(".panel-body").forEach((inp) => inp.addEventListener("input", onPanelFieldInput));
+  ul.querySelectorAll(".panel-glass").forEach((inp) => inp.addEventListener("change", onPanelFieldInput));
+  ul.querySelectorAll(".panel-blur, .panel-op").forEach((inp) => inp.addEventListener("input", onPanelFieldInput));
+
+  s.panels.forEach((pan, idx) => {
+    const blurOut = ul.querySelector(`.panel-blur-out[data-i="${idx}"]`);
+    const opOut = ul.querySelector(`.panel-op-out[data-i="${idx}"]`);
+    const glassOpts = ul.querySelector(`[data-glass-opts="${idx}"]`);
+    const glassCb = ul.querySelector(`.panel-glass[data-i="${idx}"]`);
+    if (blurOut) blurOut.textContent = String(pan.blur);
+    if (opOut) opOut.textContent = pan.opacity.toFixed(2);
+    if (glassOpts) glassOpts.style.opacity = pan.glass && glassCb?.checked !== false ? "1" : "0.45";
+    if (glassOpts) glassOpts.style.pointerEvents = pan.glass ? "auto" : "none";
+  });
+
+  ul.querySelectorAll(".rm-panel").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const i = +btn.getAttribute("data-i");
+      s.panels.splice(i, 1);
+      renderPanelBlockEditors();
+      renderPreview();
+      persist();
+    });
+  });
+}
+
+function onPanelFieldInput(e) {
+  const s = screenById(state.editScreenId);
+  if (!s || !s.panels) return;
+  const i = +e.target.getAttribute("data-i");
+  const pan = s.panels[i];
+  if (!pan) return;
+  if (e.target.classList.contains("panel-title")) pan.title = e.target.value;
+  else if (e.target.classList.contains("panel-body")) pan.body = e.target.value;
+  else if (e.target.classList.contains("panel-glass")) {
+    pan.glass = e.target.checked;
+    const glassOpts = document.querySelector(`#panel-blocks-editor-list [data-glass-opts="${i}"]`);
+    if (glassOpts) {
+      glassOpts.style.opacity = pan.glass ? "1" : "0.45";
+      glassOpts.style.pointerEvents = pan.glass ? "auto" : "none";
+    }
+  } else if (e.target.classList.contains("panel-blur")) {
+    pan.blur = clamp(+e.target.value, 0, 48);
+    const out = document.querySelector(`#panel-blocks-editor-list .panel-blur-out[data-i="${i}"]`);
+    if (out) out.textContent = String(pan.blur);
+  } else if (e.target.classList.contains("panel-op")) {
+    pan.opacity = clamp(+e.target.value, 0, 1);
+    const out = document.querySelector(`#panel-blocks-editor-list .panel-op-out[data-i="${i}"]`);
+    if (out) out.textContent = pan.opacity.toFixed(2);
+  }
+  Object.assign(pan, normalizePanel(pan));
+  renderPreview();
+  persist();
 }
 
 function onProductFieldInput(e) {
@@ -479,6 +645,7 @@ document.getElementById("btn-add-screen").addEventListener("click", () => {
     bgColor: "#2b2d42",
     bgGradient: "linear-gradient(135deg, #2b2d42, #8d99ae)",
     bgImageDataUrl: null,
+    panels: [],
     products: [],
   });
   state.editScreenId = base;
@@ -497,6 +664,22 @@ document.getElementById("btn-add-menu").addEventListener("click", () => {
   });
   state.editMenuId = id;
   renderAll();
+  persist();
+});
+
+document.getElementById("btn-add-panel-block").addEventListener("click", () => {
+  const s = screenById(state.editScreenId);
+  if (!s) return;
+  if (!Array.isArray(s.panels)) s.panels = [];
+  s.panels.push({
+    title: "Nuevo panel",
+    body: "Escribe aquí. Activa “cristal” para transparencia y blur.",
+    glass: true,
+    blur: 12,
+    opacity: 0.22,
+  });
+  renderPanelBlockEditors();
+  renderPreview();
   persist();
 });
 
@@ -532,11 +715,71 @@ document.getElementById("btn-load-demo").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   state = defaultState();
   renderAll();
-  fillEditForm();
   persist();
 });
 
 let exportTab = "html";
+
+function panelsHtmlForExport(s) {
+  const esc = escapeHtml;
+  if (!s.panels?.length) return "";
+  const rows = s.panels
+    .map((p) => {
+      const op = clamp(typeof p.opacity === "number" ? p.opacity : 0.22, 0, 1);
+      const blur = clamp(typeof p.blur === "number" ? p.blur : 12, 0, 48);
+      const glass = p.glass !== false;
+      const style = glass
+        ? ` style="background: rgba(12, 18, 28, ${op}); backdrop-filter: blur(${blur}px); -webkit-backdrop-filter: blur(${blur}px); border: 1px solid rgba(255,255,255,0.15);"`
+        : ` style="background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.12);"`;
+      return `          <section class="content-panel"${style}>
+            <h3>${esc(p.title)}</h3>
+            <p>${esc(p.body)}</p>
+          </section>`;
+    })
+    .join("\n");
+  return `
+        <div class="content-panels">
+${rows}
+        </div>`;
+}
+
+function getExportedNavCss() {
+  const ns = state.navStyle;
+  const wrap = ns.stretch ? "nowrap" : "wrap";
+  let navBtnExtra = "";
+  if (ns.stretch) {
+    navBtnExtra = `\n.nav-btn { flex: 1 1 0; min-width: ${ns.minWidth > 0 ? ns.minWidth + "px" : "0"}; }`;
+  } else if (ns.minWidth > 0) {
+    navBtnExtra = `\n.nav-btn { min-width: ${ns.minWidth}px; }`;
+  }
+  return `/* --- Navegación --- */
+.site-nav {
+  display: flex;
+  flex-wrap: ${wrap};
+  gap: ${ns.gap}rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--nav-bg);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.nav-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: ${ns.paddingY}rem ${ns.paddingX}rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.nav-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.nav-btn.is-active {
+  background: rgba(88, 166, 255, 0.35);
+  border-color: rgba(88, 166, 255, 0.6);
+}${navBtnExtra}`;
+}
 
 function buildExportedHtml() {
   const esc = escapeHtml;
@@ -549,6 +792,7 @@ function buildExportedHtml() {
 
   const screensHtml = state.screens
     .map((s) => {
+      const panelsBlock = panelsHtmlForExport(s);
       const productsBlock =
         s.products?.length > 0
           ? `
@@ -570,6 +814,7 @@ ${s.products
             <h2>${esc(s.title)}</h2>
             <p>${esc(s.subtitle)}</p>
           </header>
+          ${panelsBlock}
           ${productsBlock}
         </div>
       </section>`;
@@ -652,33 +897,7 @@ body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line
 .site-main { flex: 1; position: relative; }`);
 
   lines.push("");
-  lines.push(`/* --- Navegación --- */
-.site-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.85rem 1.25rem;
-  background: var(--nav-bg);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.nav-btn {
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-.nav-btn:hover { background: rgba(255, 255, 255, 0.12); }
-.nav-btn.is-active {
-  background: rgba(88, 166, 255, 0.35);
-  border-color: rgba(88, 166, 255, 0.6);
-}`);
+  lines.push(getExportedNavCss());
 
   lines.push("");
   lines.push(`/* --- Pantallas: visibilidad --- */
@@ -732,6 +951,29 @@ body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line
   opacity: 0.92;
   margin: 0;
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
+}`);
+
+  lines.push("");
+  lines.push(`/* --- Paneles de contenido (estructura; fondos vía estilos en línea en HTML) --- */
+.content-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 42rem;
+}
+.content-panel {
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+}
+.content-panel h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.content-panel p {
+  margin: 0;
+  font-size: 0.93rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
 }`);
 
   lines.push("");
@@ -827,13 +1069,103 @@ document.getElementById("btn-download-export").addEventListener("click", () => {
   URL.revokeObjectURL(a.href);
 });
 
+function syncNavOutputs() {
+  const ns = state.navStyle;
+  const px = document.getElementById("nav-pad-x-out");
+  const py = document.getElementById("nav-pad-y-out");
+  const g = document.getElementById("nav-gap-out");
+  const mw = document.getElementById("nav-minw-out");
+  if (px) px.textContent = `${ns.paddingX} rem`;
+  if (py) py.textContent = `${ns.paddingY} rem`;
+  if (g) g.textContent = `${ns.gap} rem`;
+  if (mw) mw.textContent = ns.minWidth > 0 ? `${ns.minWidth} px` : "auto";
+}
+
+function fillNavForm() {
+  const ns = state.navStyle;
+  const stretch = document.getElementById("nav-stretch");
+  const padX = document.getElementById("nav-pad-x");
+  const padY = document.getElementById("nav-pad-y");
+  const gap = document.getElementById("nav-gap");
+  const minw = document.getElementById("nav-minw");
+  if (stretch) stretch.checked = ns.stretch;
+  if (padX) padX.value = String(ns.paddingX);
+  if (padY) padY.value = String(ns.paddingY);
+  if (gap) gap.value = String(ns.gap);
+  if (minw) minw.value = String(ns.minWidth);
+  syncNavOutputs();
+}
+
+function bindNavForm() {
+  const ns = () => state.navStyle;
+  document.getElementById("nav-stretch").addEventListener("change", (e) => {
+    ns().stretch = e.target.checked;
+    renderPreview();
+    persist();
+  });
+  document.getElementById("nav-pad-x").addEventListener("input", (e) => {
+    ns().paddingX = parseFloat(e.target.value);
+    syncNavOutputs();
+    renderPreview();
+    persist();
+  });
+  document.getElementById("nav-pad-y").addEventListener("input", (e) => {
+    ns().paddingY = parseFloat(e.target.value);
+    syncNavOutputs();
+    renderPreview();
+    persist();
+  });
+  document.getElementById("nav-gap").addEventListener("input", (e) => {
+    ns().gap = parseFloat(e.target.value);
+    syncNavOutputs();
+    renderPreview();
+    persist();
+  });
+  document.getElementById("nav-minw").addEventListener("input", (e) => {
+    ns().minWidth = parseInt(e.target.value, 10) || 0;
+    syncNavOutputs();
+    renderPreview();
+    persist();
+  });
+}
+
+function bindPreviewFullscreen() {
+  const outer = document.getElementById("preview-outer");
+  const btn = document.getElementById("btn-preview-fullscreen");
+  const hint = document.getElementById("preview-fullscreen-hint");
+  if (!outer || !btn) return;
+
+  function syncFsUi() {
+    const on = document.fullscreenElement === outer;
+    btn.textContent = on ? "Salir de pantalla completa" : "Pantalla completa";
+    if (hint) hint.hidden = !on;
+  }
+
+  btn.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement === outer) {
+        await document.exitFullscreen();
+      } else {
+        await outer.requestFullscreen();
+      }
+    } catch (err) {
+      console.warn("Pantalla completa no disponible:", err);
+    }
+  });
+  document.addEventListener("fullscreenchange", syncFsUi);
+  syncFsUi();
+}
+
 function renderAll() {
   renderScreenList();
   renderMenuList();
   renderPreview();
   fillEditForm();
+  fillNavForm();
 }
 
 bindEditForm();
 bindMenuEditPanel();
+bindNavForm();
+bindPreviewFullscreen();
 renderAll();
