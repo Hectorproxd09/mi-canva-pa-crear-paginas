@@ -50,15 +50,52 @@
             </label>
           </div>
         </section>
+
+        <section class="panel-block">
+          <h2>Botones del menú (global)</h2>
+          <p class="hint">Afecta a todos los enlaces del menú en la vista previa y en la exportación.</p>
+          <label class="field check-field">
+            <span class="check-row">
+              <input type="checkbox" id="nav-stretch" />
+              Estirar botones (reparten el ancho como barras)
+            </span>
+          </label>
+          <label class="field">
+            <span>Relleno horizontal — lados <output id="nav-pad-x-out"></output></span>
+            <input type="range" id="nav-pad-x" min="0.25" max="3.5" step="0.05" value="0.9" />
+          </label>
+          <label class="field">
+            <span>Relleno vertical — arriba/abajo <output id="nav-pad-y-out"></output></span>
+            <input type="range" id="nav-pad-y" min="0.2" max="2" step="0.05" value="0.45" />
+          </label>
+          <label class="field">
+            <span>Espacio entre botones <output id="nav-gap-out"></output></span>
+            <input type="range" id="nav-gap" min="0.1" max="1.5" step="0.05" value="0.35" />
+          </label>
+          <label class="field">
+            <span>Ancho mínimo (px, 0 = automático) <output id="nav-minw-out"></output></span>
+            <input type="range" id="nav-minw" min="0" max="280" step="4" value="0" />
+          </label>
+        </section>
       </aside>
 
       <main class="preview-column">
         <div class="preview-toolbar">
-          <span class="preview-label">Vista previa</span>
-          <span class="preview-active" id="preview-active-label"></span>
+          <div class="preview-toolbar-left">
+            <span class="preview-label">Vista previa</span>
+            <span class="preview-active" id="preview-active-label"></span>
+          </div>
+          <div class="preview-toolbar-actions">
+            <button type="button" class="btn btn-small btn-outline" id="btn-preview-fullscreen" title="Ver a pantalla completa (Esc para salir)">
+              Pantalla completa
+            </button>
+          </div>
         </div>
+        <p class="preview-fullscreen-hint" id="preview-fullscreen-hint" hidden>Modo pantalla completa — <kbd>Esc</kbd> para volver</p>
         <div class="preview-frame-wrap">
-          <div class="preview-frame" id="preview-root" aria-live="polite"></div>
+          <div class="preview-outer" id="preview-outer">
+            <div class="preview-frame" id="preview-root" aria-live="polite"></div>
+          </div>
         </div>
       </main>
 
@@ -99,6 +136,13 @@
               <input type="file" id="edit-bg-image-file" accept="image/*" />
             </label>
             <button type="button" class="btn btn-small btn-ghost" id="btn-clear-bg-image">Quitar imagen</button>
+          </fieldset>
+
+          <fieldset class="field-group">
+            <legend>Paneles de contenido</legend>
+            <p class="hint">Bloques de texto; opción “cristal” = fondo semitransparente y desenfoque (efecto vidrio).</p>
+            <ul class="panel-blocks-editor-list" id="panel-blocks-editor-list"></ul>
+            <button type="button" class="btn btn-small btn-outline" id="btn-add-panel-block">+ Panel</button>
           </fieldset>
 
           <fieldset class="field-group">
