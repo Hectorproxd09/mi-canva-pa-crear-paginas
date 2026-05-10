@@ -1,50 +1,143 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>Velion Builder</title>
-<link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Estudio visual — Imagen a código</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <div class="app" id="app">
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div>
+          <h1>Estudio visual</h1>
+          <p class="tagline">Diseña pantallas, menú y fondos — exporta HTML y CSS ordenados</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn btn-ghost" id="btn-load-demo">Cargar demo</button>
+        <button type="button" class="btn btn-primary" id="btn-export">Exportar sitio estático</button>
+      </div>
+    </header>
 
-<div class="topbar">
-  <button onclick="addElement('text')">Texto</button>
-  <button onclick="addElement('button')">Botón</button>
-  <button onclick="addElement('panel')">Panel</button>
+    <div class="workspace">
+      <aside class="panel panel-nav" aria-label="Pantallas y menú">
+        <section class="panel-block">
+          <h2>Pantallas</h2>
+          <p class="hint">Cada pantalla es una “vista” al tocar el menú.</p>
+          <ul class="screen-list" id="screen-list"></ul>
+          <button type="button" class="btn btn-small btn-outline" id="btn-add-screen">+ Nueva pantalla</button>
+        </section>
 
-  <input id="bg-url" placeholder="Fondo (img o video)">
-  <button onclick="setBackground()">Aplicar</button>
+        <section class="panel-block">
+          <h2>Elementos del menú</h2>
+          <p class="hint">El texto del botón y a qué pantalla lleva. Toca un enlace para editarlo.</p>
+          <ul class="menu-list" id="menu-list"></ul>
+          <button type="button" class="btn btn-small btn-outline" id="btn-add-menu">+ Enlace de menú</button>
+          <div class="menu-edit-panel" id="menu-edit-panel" hidden>
+            <label class="field">
+              <span>Texto del botón</span>
+              <input type="text" id="menu-edit-label" />
+            </label>
+            <label class="field">
+              <span>Pantalla destino</span>
+              <select id="menu-edit-target"></select>
+            </label>
+          </div>
+        </section>
+      </aside>
 
-  <!-- 🔥 NUEVO -->
-  <button onclick="toggleSnap()">▢ Snap</button>
+      <main class="preview-column">
+        <div class="preview-toolbar">
+          <span class="preview-label">Vista previa</span>
+          <span class="preview-active" id="preview-active-label"></span>
+        </div>
+        <div class="preview-frame-wrap">
+          <div class="preview-frame" id="preview-root" aria-live="polite"></div>
+        </div>
+      </main>
 
-  <button onclick="undo()">↶</button>
-  <button onclick="redo()">↷</button>
-</div>
+      <aside class="panel panel-edit" aria-label="Editar pantalla seleccionada">
+        <section class="panel-block">
+          <h2>Editar pantalla</h2>
+          <p class="hint" id="edit-screen-hint">Selecciona una pantalla en la lista.</p>
 
-<div class="app">
-  <div id="canvas"></div>
+          <label class="field">
+            <span>ID (clase CSS)</span>
+            <input type="text" id="edit-id" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Título principal</span>
+            <input type="text" id="edit-title" />
+          </label>
+          <label class="field">
+            <span>Subtítulo / texto</span>
+            <textarea id="edit-subtitle" rows="3"></textarea>
+          </label>
 
-  <div class="panel-ui">
-    <h3>Propiedades</h3>
+          <fieldset class="field-group">
+            <legend>Fondo de esta pantalla</legend>
+            <label class="field inline">
+              <span>Color sólido</span>
+              <input type="color" id="edit-bg-color" />
+            </label>
+            <label class="field">
+              <span>Gradiente (CSS)</span>
+              <input type="text" id="edit-bg-gradient" placeholder="linear-gradient(135deg, #1a1a2e, #16213e)" />
+            </label>
+            <label class="field">
+              <span>Imagen (URL o sube archivo)</span>
+              <input type="url" id="edit-bg-image-url" placeholder="https://..." />
+            </label>
+            <label class="field file-field">
+              <span>Subir imagen de fondo</span>
+              <input type="file" id="edit-bg-image-file" accept="image/*" />
+            </label>
+            <button type="button" class="btn btn-small btn-ghost" id="btn-clear-bg-image">Quitar imagen</button>
+          </fieldset>
 
-    <input id="prop-text" placeholder="Texto">
-    <input id="prop-size" type="number">
-    <input id="prop-color" type="color">
-    <input id="prop-link" placeholder="Link">
+          <fieldset class="field-group">
+            <legend>Productos en esta pantalla</legend>
+            <p class="hint">Aparecen como tarjetas bajo el texto.</p>
+            <ul class="product-editor-list" id="product-editor-list"></ul>
+            <button type="button" class="btn btn-small btn-outline" id="btn-add-product">+ Producto</button>
+          </fieldset>
+        </section>
 
-    <button onclick="deleteElement()">Eliminar</button>
-
-    <hr>
-
-    <h3>HTML</h3>
-    <pre id="html-code"></pre>
-
-    <h3>CSS</h3>
-    <pre id="css-code"></pre>
+        <section class="panel-block panel-block-muted">
+          <h2>Imagen → inspiración</h2>
+          <p class="hint">Sube una captura o mockup: se usa como fondo de la pantalla que estés editando (no es OCR; sirve para maquetar encima).</p>
+          <label class="field file-field">
+            <span>Imagen de referencia</span>
+            <input type="file" id="ref-image-file" accept="image/*" />
+          </label>
+        </section>
+      </aside>
+    </div>
   </div>
-</div>
 
-<script src="script.js"></script>
+  <dialog class="modal" id="export-modal">
+    <form method="dialog" class="modal-inner">
+      <h2>Exportación generada</h2>
+      <p class="hint">Copia o descarga. El HTML y el CSS quedan comentados por secciones.</p>
+      <div class="tabs">
+        <button type="button" class="tab active" data-tab="html">index.html</button>
+        <button type="button" class="tab" data-tab="css">styles.css</button>
+      </div>
+      <textarea class="export-textarea" id="export-textarea" readonly rows="18"></textarea>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="btn-copy-export">Copiar</button>
+        <button type="button" class="btn btn-outline" id="btn-download-export">Descargar archivo</button>
+        <button type="submit" class="btn btn-ghost">Cerrar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
 </body>
 </html>
