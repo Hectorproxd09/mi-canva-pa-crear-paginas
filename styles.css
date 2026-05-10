@@ -269,9 +269,42 @@ p {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   padding: 0.5rem 1rem;
   background: var(--bg-elevated);
   border-bottom: 1px solid var(--border);
+}
+
+.preview-toolbar-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.preview-toolbar-actions {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.preview-fullscreen-hint {
+  margin: 0;
+  padding: 0.35rem 1rem;
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.preview-fullscreen-hint kbd {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-deep);
 }
 
 .preview-label {
@@ -294,6 +327,42 @@ p {
   align-items: stretch;
   justify-content: center;
   overflow: auto;
+}
+
+.preview-outer {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+}
+
+.preview-outer:fullscreen {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  background: #050608;
+  padding: 0;
+}
+
+.preview-outer:fullscreen .preview-frame {
+  flex: 1;
+  max-width: none;
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-outer:fullscreen .preview-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .preview-frame {
@@ -323,6 +392,15 @@ p {
   background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.preview-inner .site-nav.nav-stretch {
+  flex-wrap: nowrap;
+}
+
+.preview-inner .site-nav.nav-stretch button {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .preview-inner .site-nav button {
@@ -400,6 +478,37 @@ p {
   opacity: 0.85;
 }
 
+.preview-inner .content-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 42rem;
+}
+
+.preview-inner .content-panel {
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.preview-inner .content-panel h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.preview-inner .content-panel p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  opacity: 0.95;
+  white-space: pre-wrap;
+}
+
+.preview-inner .content-panel.panel-solid {
+  background: rgba(0, 0, 0, 0.32);
+}
+
 /* --- Form fields --- */
 .field {
   display: flex;
@@ -411,6 +520,25 @@ p {
 .field span {
   font-size: 0.78rem;
   color: var(--text-muted);
+}
+
+.field input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.check-field .check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.check-field input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
 }
 
 .field input[type="text"],
@@ -452,6 +580,60 @@ p {
 
 .file-field input[type="file"] {
   font-size: 0.8rem;
+}
+
+.panel-blocks-editor-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.panel-block-editor-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem;
+  background: var(--bg-deep);
+}
+
+.panel-block-editor-item textarea {
+  width: 100%;
+  min-height: 3.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  resize: vertical;
+}
+
+.panel-block-editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.panel-block-glass-opts {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--border);
+}
+
+.panel-block-glass-opts label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
 .product-editor-list {
