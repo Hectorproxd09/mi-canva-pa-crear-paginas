@@ -5,11 +5,13 @@
 const STORAGE_KEY = "visual-web-studio-state-v1";
 
 /** @typedef {{ title: string; body: string; glass: boolean; blur: number; opacity: number }} ContentPanel */
-/** @typedef {{ id: string; title: string; subtitle: string; bgColor: string; bgGradient: string; bgImageDataUrl: string | null; products: { name: string; price: string }[]; panels: ContentPanel[] }} Screen */
+/** @typedef {{ left: number; top: number; width: number }} LayoutBox */
+/** @typedef {{ head: LayoutBox; panels: LayoutBox[]; products?: LayoutBox }} ScreenLayout */
+/** @typedef {{ id: string; title: string; subtitle: string; bgColor: string; bgGradient: string; bgImageDataUrl: string | null; products: { name: string; price: string }[]; panels: ContentPanel[]; layout?: ScreenLayout | null }} Screen */
 /** @typedef {{ id: string; label: string; targetScreenId: string }} MenuItem */
 /** @typedef {{ stretch: boolean; paddingX: number; paddingY: number; gap: number; minWidth: number }} NavStyle */
 
-/** @type {{ screens: Screen[]; menu: MenuItem[]; navStyle: NavStyle; previewScreenId: string; editScreenId: string; editMenuId: string | null }} */
+/** @type {{ screens: Screen[]; menu: MenuItem[]; navStyle: NavStyle; layoutDragMode: boolean; previewScreenId: string; editScreenId: string; editMenuId: string | null }} */
 let state = loadState() || defaultState();
 
 function defaultNavStyle() {
@@ -28,9 +30,15 @@ function normalizePanel(p) {
 
 function migrateState(st) {
   st.navStyle = { ...defaultNavStyle(), ...(st.navStyle || {}) };
+  if (typeof st.layoutDragMode !== "boolean") st.layoutDragMode = false;
   st.screens.forEach((s) => {
     if (!Array.isArray(s.panels)) s.panels = [];
     s.panels = s.panels.map(normalizePanel);
+    if (!s.layout || typeof s.layout !== "object") {
+      delete s.layout;
+    } else if (!Array.isArray(s.layout.panels)) {
+      s.layout.panels = [];
+    }
   });
   return st;
 }
@@ -38,6 +46,7 @@ function migrateState(st) {
 function defaultState() {
   return {
     navStyle: defaultNavStyle(),
+    layoutDragMode: false,
     screens: [
       {
         id: "inicio",
@@ -124,6 +133,59 @@ function clamp(n, lo, hi) {
   return Math.min(hi, Math.max(lo, n));
 }
 
+function initDefaultScreenLayout(s) {
+  /** @type {ScreenLayout} */
+  const L = {
+    head: { left: 4, top: 8, width: 90 },
+    panels: (s.panels || []).map((_, i) => ({ left: 4, top: 26 + i * 22, width: 72 })),
+    products: s.products?.length ? { left: 4, top: 58, width: 92 } : undefined,
+  };
+  s.layout = L;
+}
+
+function ensureScreenLayoutSync(s) {
+  if (!s.layout) return;
+  if (!s.layout.head || typeof s.layout.head.left !== "number") {
+    s.layout.head = { left: 4, top: 8, width: 90 };
+  }
+  if (!Array.isArray(s.layout.panels)) s.layout.panels = [];
+  const n = s.panels?.length || 0;
+  while (s.layout.panels.length < n) {
+    const i = s.layout.panels.length;
+    s.layout.panels.push({ left: 4, top: 28 + i * 22, width: 70 });
+  }
+  while (s.layout.panels.length > n) s.layout.panels.pop();
+  if (s.products?.length) {
+    if (!s.layout.products) s.layout.products = { left: 4, top: 62, width: 92 };
+  } else {
+    delete s.layout.products;
+  }
+}
+
+/** Estilos de caja en línea para HTML/CSS exportado */
+function boxGeomInline(box) {
+  if (!box) return "";
+  const w = box.width != null ? box.width : 88;
+  return `position:absolute;left:${box.left}%;top:${box.top}%;width:${w}%;box-sizing:border-box;`;
+}
+
+function applyLayoutToEl(el, box) {
+  if (!box) return;
+  el.style.position = "absolute";
+  el.style.left = `${box.left}%`;
+  el.style.top = `${box.top}%`;
+  el.style.width = `${box.width != null ? box.width : 88}%`;
+  el.style.boxSizing = "border-box";
+}
+
+function clearLayoutEl(el) {
+  el.style.position = "";
+  el.style.left = "";
+  el.style.top = "";
+  el.style.width = "";
+  el.style.boxSizing = "";
+}
+
 function applyNavStyleToElement(nav) {
   const ns = state.navStyle;
   nav.style.gap = `${ns.gap}rem`;
@@ -140,30 +202,91 @@ function applyNavStyleToElement(nav) {
   });
 }
 
-function renderContentPanelsPreview(container, s) {
+function buildPanelPreviewElement(pan) {
+  const el = document.createElement("section");
+  el.className = "content-panel" + (pan.glass ? "" : " panel-solid");
+  const op = clamp(pan.opacity, 0, 1);
+  const blur = clamp(pan.blur, 0, 48);
+  if (pan.glass) {
+    el.style.background = `rgba(12, 18, 28, ${op})`;
+    el.style.backdropFilter = `blur(${blur}px)`;
+    el.style.webkitBackdropFilter = `blur(${blur}px)`;
+    el.style.border = "1px solid rgba(255, 255, 255, 0.15)";
+  }
+  const h3 = document.createElement("h3");
+  h3.textContent = pan.title;
+  const p = document.createElement("p");
+  p.textContent = pan.body;
+  el.appendChild(h3);
+  el.appendChild(p);
+  return el;
+}
+
+function renderContentPanelsPreview(inner, s) {
   if (!s.panels?.length) return;
-  const wrap = document.createElement("div");
-  wrap.className = "content-panels";
-  s.panels.forEach((pan) => {
-    const el = document.createElement("section");
-    el.className = "content-panel" + (pan.glass ? "" : " panel-solid");
-    const op = clamp(pan.opacity, 0, 1);
-    const blur = clamp(pan.blur, 0, 48);
-    if (pan.glass) {
-      el.style.background = `rgba(12, 18, 28, ${op})`;
-      el.style.backdropFilter = `blur(${blur}px)`;
-      el.style.webkitBackdropFilter = `blur(${blur}px)`;
-      el.style.border = "1px solid rgba(255, 255, 255, 0.15)";
-    }
-    const h3 = document.createElement("h3");
-    h3.textContent = pan.title;
-    const p = document.createElement("p");
-    p.textContent = pan.body;
-    el.appendChild(h3);
-    el.appendChild(p);
-    wrap.appendChild(el);
+  if (s.layout) {
+    ensureScreenLayoutSync(s);
+    s.panels.forEach((pan, i) => {
+      const el = buildPanelPreviewElement(pan);
+      el.dataset.dragLayout = "panel";
+      el.dataset.dragIndex = String(i);
+      applyLayoutToEl(el, s.layout.panels[i]);
+      inner.appendChild(el);
+    });
+  } else {
+    const wrap = document.createElement("div");
+    wrap.className = "content-panels";
+    s.panels.forEach((pan) => wrap.appendChild(buildPanelPreviewElement(pan)));
+    inner.appendChild(wrap);
+  }
+}
+
+function bindLayoutDragForScreen(inner, s) {
+  if (!s.layout) return;
+  inner.querySelectorAll("[data-drag-layout]").forEach((el) => {
+    el.classList.toggle("layout-drag-target", !!state.layoutDragMode);
+    const onDown = (e) => {
+      if (!state.layoutDragMode || !s.layout) return;
+      e.preventDefault();
+      e.stopPropagation();
+      ensureScreenLayoutSync(s);
+      const key = el.dataset.dragLayout;
+      const idx = el.dataset.dragIndex;
+      /** @type {LayoutBox | undefined} */
+      let box;
+      if (key === "head") box = s.layout.head;
+      else if (key === "products") box = s.layout.products;
+      else if (key === "panel" && idx != null) box = s.layout.panels[+idx];
+      if (!box) return;
+
+      const rect = inner.getBoundingClientRect();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const l0 = box.left;
+      const t0 = box.top;
+
+      function move(ev) {
+        const dx = ((ev.clientX - startX) / rect.width) * 100;
+        const dy = ((ev.clientY - startY) / rect.height) * 100;
+        box.left = clamp(l0 + dx, 0, 92);
+        box.top = clamp(t0 + dy, 0, 92);
+        applyLayoutToEl(el, box);
+      }
+      function up() {
+        document.removeEventListener("mousemove", move);
+        document.removeEventListener("mouseup", up);
+        persist();
+      }
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", up);
+    };
+    el.addEventListener("mousedown", onDown);
   });
-  container.appendChild(wrap);
+}
+
+function syncLayoutDragToolbarLabel() {
+  const btn = document.getElementById("btn-layout-drag-mode");
+  if (btn) btn.textContent = state.layoutDragMode ? "Modo arrastre: on" : "Modo arrastre: off";
 }
 
 /* ---------- Render lists ---------- */
@@ -351,35 +474,54 @@ function renderPreview() {
     section.dataset.screenId = s.id;
     applyBgToEl(section, s);
 
-    const head = document.createElement("div");
+    const screenInner = document.createElement("div");
+    screenInner.className = "screen-inner";
+    if (s.layout) {
+      ensureScreenLayoutSync(s);
+      screenInner.classList.add("screen-inner--free");
+    }
+
+    const head = document.createElement("header");
     head.className = "screen-head";
+    if (s.layout) {
+      head.dataset.dragLayout = "head";
+      applyLayoutToEl(head, s.layout.head);
+    }
     const h2 = document.createElement("h2");
     h2.textContent = s.title;
     const p = document.createElement("p");
     p.textContent = s.subtitle;
     head.appendChild(h2);
     head.appendChild(p);
-    section.appendChild(head);
+    screenInner.appendChild(head);
 
-    renderContentPanelsPreview(section, s);
+    renderContentPanelsPreview(screenInner, s);
 
     if (s.products?.length) {
       const grid = document.createElement("div");
       grid.className = "product-grid";
+      if (s.layout) {
+        grid.dataset.dragLayout = "products";
+        applyLayoutToEl(grid, s.layout.products);
+      }
       s.products.forEach((pr) => {
         const card = document.createElement("article");
         card.className = "product-card";
         card.innerHTML = `<h3>${escapeHtml(pr.name)}</h3><p>${escapeHtml(pr.price)}</p>`;
         grid.appendChild(card);
       });
-      section.appendChild(grid);
+      screenInner.appendChild(grid);
     }
 
+    section.appendChild(screenInner);
     inner.appendChild(section);
+
+    bindLayoutDragForScreen(screenInner, s);
   });
 
   root.appendChild(inner);
   updatePreviewLabel();
+  syncLayoutDragToolbarLabel();
 }
 
 /* ---------- Edit form ---------- */
@@ -392,6 +534,9 @@ function fillEditForm() {
     return;
   }
   hint.textContent = `Editando: ${s.id}`;
+
+  const freeCb = document.getElementById("edit-free-layout");
+  if (freeCb) freeCb.checked = !!s.layout;
 
   const idInput = document.getElementById("edit-id");
   const titleInput = document.getElementById("edit-title");
@@ -720,9 +865,32 @@ document.getElementById("btn-load-demo").addEventListener("click", () => {
 
 let exportTab = "html";
 
+function panelExportCombinedStyle(p, box) {
+  const op = clamp(typeof p.opacity === "number" ? p.opacity : 0.22, 0, 1);
+  const blur = clamp(typeof p.blur === "number" ? p.blur : 12, 0, 48);
+  const glass = p.glass !== false;
+  const geom = boxGeomInline(box || { left: 4, top: 30, width: 72 });
+  const visual = glass
+    ? `background:rgba(12,18,28,${op});backdrop-filter:blur(${blur}px);-webkit-backdrop-filter:blur(${blur}px);border:1px solid rgba(255,255,255,0.15);`
+    : `background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.12);`;
+  return ` style="${geom}${visual}"`;
+}
+
 function panelsHtmlForExport(s) {
   const esc = escapeHtml;
   if (!s.panels?.length) return "";
+  if (s.layout) {
+    ensureScreenLayoutSync(s);
+    return s.panels
+      .map((p, i) => {
+        const attr = panelExportCombinedStyle(p, s.layout.panels[i]);
+        return `          <section class="content-panel"${attr}>
+            <h3>${esc(p.title)}</h3>
+            <p>${esc(p.body)}</p>
+          </section>`;
+      })
+      .join("\n");
+  }
   const rows = s.panels
     .map((p) => {
       const op = clamp(typeof p.opacity === "number" ? p.opacity : 0.22, 0, 1);
@@ -792,11 +960,20 @@ function buildExportedHtml() {
 
   const screensHtml = state.screens
     .map((s) => {
+      if (s.layout) ensureScreenLayoutSync(s);
+      const innerClass = s.layout ? "screen-inner screen-inner--free" : "screen-inner";
+      const headStyle = s.layout?.head ? ` style="${boxGeomInline(s.layout.head)}"` : "";
       const panelsBlock = panelsHtmlForExport(s);
+      const gridOpen =
+        s.products?.length > 0
+          ? s.layout?.products
+            ? `<div class="product-grid" style="${boxGeomInline(s.layout.products)}">`
+            : `<div class="product-grid">`
+          : "";
       const productsBlock =
         s.products?.length > 0
           ? `
-        <div class="product-grid">
+        ${gridOpen}
 ${s.products
   .map(
     (p) => `          <article class="product-card">
@@ -809,8 +986,8 @@ ${s.products
           : "";
       return `      <!-- === Pantalla: ${esc(s.id)} === -->
       <section class="screen" id="screen-${esc(s.id)}" data-screen="${esc(s.id)}">
-        <div class="screen-inner">
-          <header class="screen-head">
+        <div class="${innerClass}">
+          <header class="screen-head"${headStyle}>
             <h2>${esc(s.title)}</h2>
             <p>${esc(s.subtitle)}</p>
           </header>
@@ -913,6 +1090,13 @@ body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; line
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+.screen .screen-inner.screen-inner--free {
+  display: block;
+  position: relative;
+  min-height: calc(100vh - 56px);
+  padding: 1.25rem;
+  gap: 0;
 }`);
 
   state.screens.forEach((s) => {
@@ -1156,6 +1340,32 @@ function bindPreviewFullscreen() {
   syncFsUi();
 }
 
+function bindFreeLayoutAndDrag() {
+  const freeCb = document.getElementById("edit-free-layout");
+  if (freeCb) {
+    freeCb.addEventListener("change", (e) => {
+      const s = screenById(state.editScreenId);
+      if (!s) return;
+      if (e.target.checked) {
+        initDefaultScreenLayout(s);
+        ensureScreenLayoutSync(s);
+      } else {
+        delete s.layout;
+      }
+      renderPreview();
+      persist();
+    });
+  }
+  const dragBtn = document.getElementById("btn-layout-drag-mode");
+  if (dragBtn) {
+    dragBtn.addEventListener("click", () => {
+      state.layoutDragMode = !state.layoutDragMode;
+      renderPreview();
+      persist();
+    });
+  }
+}
+
 function renderAll() {
   renderScreenList();
   renderMenuList();
@@ -1168,4 +1378,5 @@ bindEditForm();
 bindMenuEditPanel();
 bindNavForm();
 bindPreviewFullscreen();
+bindFreeLayoutAndDrag();
 renderAll();
