@@ -20,6 +20,8 @@
         </div>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn btn-ghost" id="btn-undo" disabled title="Deshacer (Ctrl+Z)">Deshacer</button>
+        <button type="button" class="btn btn-ghost" id="btn-redo" disabled title="Rehacer (Ctrl+Y)">Rehacer</button>
         <button type="button" class="btn btn-ghost" id="btn-load-demo">Cargar demo</button>
         <button type="button" class="btn btn-primary" id="btn-export">Exportar sitio estático</button>
       </div>
@@ -27,6 +29,7 @@
 
     <div class="workspace">
       <aside class="panel panel-nav" aria-label="Pantallas y menú">
+        <div class="panel-nav-scroll">
         <section class="panel-block">
           <h2>Pantallas</h2>
           <p class="hint">Cada pantalla es una “vista” al tocar el menú.</p>
@@ -77,6 +80,13 @@
             <input type="range" id="nav-minw" min="0" max="280" step="4" value="0" />
           </label>
         </section>
+        </div>
+
+        <section class="panel-block panel-selection-dock" id="selection-dock" aria-label="Selección actual">
+          <h2>Selección</h2>
+          <p class="hint selection-dock-hint">Lo que marques en listas o en la vista previa aparece aquí.</p>
+          <div class="selection-dock-body" id="selection-dock-body"></div>
+        </section>
       </aside>
 
       <main class="preview-column">
@@ -84,6 +94,7 @@
           <div class="preview-toolbar-left">
             <span class="preview-label">Vista previa</span>
             <span class="preview-active" id="preview-active-label"></span>
+            <span class="preview-scale-note" id="preview-scale-note" title="El contenido se escala al ancho de tu ventana para que el menú coincida con pantalla completa">Escala ≈ ventana</span>
           </div>
           <div class="preview-toolbar-actions">
             <button type="button" class="btn btn-small btn-outline" id="btn-layout-drag-mode" title="Activa el arrastre de bloques en pantallas con posición libre">
