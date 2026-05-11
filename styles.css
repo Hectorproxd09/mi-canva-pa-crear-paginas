@@ -427,16 +427,41 @@ p {
 
 .preview-inner .screen {
   flex: 1;
-  padding: 2rem 1.5rem 2.5rem;
   display: none;
   flex-direction: column;
-  gap: 1.25rem;
   background-size: cover;
   background-position: center;
 }
 
 .preview-inner .screen.is-visible {
   display: flex;
+}
+
+.preview-inner .screen-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 2rem 1.5rem 2.5rem;
+  box-sizing: border-box;
+}
+
+.preview-inner .screen-inner--free {
+  position: relative;
+  display: block;
+  min-height: 220px;
+  padding: 1.25rem;
+  gap: 0;
+}
+
+.preview-inner .layout-drag-target {
+  outline: 1px dashed rgba(88, 166, 255, 0.65);
+  outline-offset: 2px;
+  cursor: grab;
+}
+
+.preview-inner .layout-drag-target:active {
+  cursor: grabbing;
 }
 
 .preview-inner .screen-head h2 {
