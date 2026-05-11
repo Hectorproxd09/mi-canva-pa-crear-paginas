@@ -11,7 +11,7 @@ const STORAGE_KEY = "visual-web-studio-state-v1";
 /** @typedef {{ id: string; label: string; targetScreenId: string }} MenuItem */
 /** @typedef {{ stretch: boolean; paddingX: number; paddingY: number; gap: number; minWidth: number }} NavStyle */
 
-/** @type {{ screens: Screen[]; menu: MenuItem[]; navStyle: NavStyle; layoutDragMode: boolean; previewScreenId: string; editScreenId: string; editMenuId: string | null }} */
+/** @type {{ screens: Screen[]; menu: MenuItem[]; navStyle: NavStyle; layoutDragMode: boolean; previewScreenId: string; editScreenId: string; editMenuId: string | null; selectionDockFocus: "screen" | "menu" | "preview-block"; selectionDockBlock: { screenId: string; kind: "head" | "panel" | "products"; panelIndex?: number } | null }} */
 let state = loadState() || defaultState();
 
 function defaultNavStyle() {
@@ -31,6 +31,10 @@ function normalizePanel(p) {
 function migrateState(st) {
   st.navStyle = { ...defaultNavStyle(), ...(st.navStyle || {}) };
   if (typeof st.layoutDragMode !== "boolean") st.layoutDragMode = false;
+  if (!st.selectionDockFocus || !["screen", "menu", "preview-block"].includes(st.selectionDockFocus)) {
+    st.selectionDockFocus = "screen";
+  }
+  if (st.selectionDockBlock === undefined) st.selectionDockBlock = null;
   st.screens.forEach((s) => {
     if (!Array.isArray(s.panels)) s.panels = [];
     s.panels = s.panels.map(normalizePanel);
@@ -87,6 +91,8 @@ function defaultState() {
     previewScreenId: "inicio",
     editScreenId: "inicio",
     editMenuId: "m1",
+    selectionDockFocus: "screen",
+    selectionDockBlock: null,
   };
 }
 
@@ -103,8 +109,136 @@ function loadState() {
   }
 }
 
+const MAX_UNDO = 80;
+/** @type {string[]} */
+let undoHist = [];
+let undoPtr = -1;
+let restoringUndo = false;
+let persistHistTimer = 0;
+
+function snapshotForUndo() {
+  return JSON.stringify({
+    screens: state.screens,
+    menu: state.menu,
+    navStyle: state.navStyle,
+    layoutDragMode: state.layoutDragMode,
+    previewScreenId: state.previewScreenId,
+    editScreenId: state.editScreenId,
+    editMenuId: state.editMenuId,
+    selectionDockFocus: state.selectionDockFocus,
+    selectionDockBlock: state.selectionDockBlock,
+  });
+}
+
+function pushUndoHistory() {
+  if (restoringUndo) return;
+  const snap = snapshotForUndo();
+  if (undoPtr >= 0 && undoHist[undoPtr] === snap) return;
+  undoHist = undoHist.slice(0, undoPtr + 1);
+  undoHist.push(snap);
+  undoPtr = undoHist.length - 1;
+  while (undoHist.length > MAX_UNDO) {
+    undoHist.shift();
+    undoPtr--;
+  }
+  updateUndoRedoButtons();
+}
+
+function applyUndoSnapshot(json) {
+  restoringUndo = true;
+  try {
+    const o = JSON.parse(json);
+    state.screens = o.screens;
+    state.menu = o.menu;
+    state.navStyle = { ...defaultNavStyle(), ...(o.navStyle || {}) };
+    state.layoutDragMode = !!o.layoutDragMode;
+    state.previewScreenId = o.previewScreenId;
+    state.editScreenId = o.editScreenId;
+    state.editMenuId = o.editMenuId;
+    state.selectionDockFocus = o.selectionDockFocus ?? "screen";
+    state.selectionDockBlock = o.selectionDockBlock ?? null;
+    migrateState(state);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderAll();
+    syncPreviewScale();
+    updateUndoRedoButtons();
+  } finally {
+    restoringUndo = false;
+  }
+}
+
+function undoAction() {
+  if (undoPtr <= 0) return;
+  undoPtr--;
+  applyUndoSnapshot(undoHist[undoPtr]);
+}
+
+function redoAction() {
+  if (undoPtr >= undoHist.length - 1) return;
+  undoPtr++;
+  applyUndoSnapshot(undoHist[undoPtr]);
+}
+
+function updateUndoRedoButtons() {
+  const u = document.getElementById("btn-undo");
+  const r = document.getElementById("btn-redo");
+  if (u) u.disabled = undoPtr <= 0;
+  if (r) r.disabled = undoPtr >= undoHist.length - 1;
+}
+
+function initUndoHistory() {
+  undoHist = [snapshotForUndo()];
+  undoPtr = 0;
+  updateUndoRedoButtons();
+}
+
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (restoringUndo) return;
+  clearTimeout(persistHistTimer);
+  persistHistTimer = setTimeout(() => pushUndoHistory(), 420);
+}
+
+/** Alinea la vista previa embebida al mismo ancho lógico que `window` (como pantalla completa), escalado al marco */
+function syncPreviewScale() {
+  const outer = document.getElementById("preview-outer");
+  const frame = document.getElementById("preview-root");
+  const scaleInner = document.getElementById("preview-scale-inner");
+  const wrap = frame?.querySelector(".preview-scale-wrap");
+  const note = document.getElementById("preview-scale-note");
+  if (!frame || !scaleInner || !wrap) return;
+
+  const isFs = document.fullscreenElement === outer;
+  if (note) note.hidden = isFs;
+
+  if (isFs) {
+    scaleInner.style.width = "";
+    scaleInner.style.transform = "";
+    scaleInner.style.transformOrigin = "";
+    scaleInner.style.marginLeft = "";
+    scaleInner.style.marginRight = "";
+    wrap.style.width = "";
+    wrap.style.minHeight = "";
+    wrap.style.height = "";
+    return;
+  }
+
+  const refW = Math.max(360, window.innerWidth);
+  const avail = Math.max(1, frame.clientWidth - 2);
+  const s = Math.min(1, avail / refW);
+
+  scaleInner.style.width = `${refW}px`;
+  scaleInner.style.transformOrigin = "top left";
+  scaleInner.style.transform = `scale(${s})`;
+  const visualW = refW * s;
+  wrap.style.width = `${visualW}px`;
+  wrap.style.marginLeft = "auto";
+  wrap.style.marginRight = "auto";
+
+  requestAnimationFrame(() => {
+    const br = scaleInner.getBoundingClientRect();
+    wrap.style.minHeight = `${Math.ceil(br.height)}px`;
+  });
 }
 
 function slugify(text) {
@@ -264,17 +398,36 @@ function bindLayoutDragForScreen(inner, s) {
         else if (key === "panel" && idx != null) box = s.layout.panels[+idx];
         if (!box) return;
 
+        state.selectionDockFocus = "preview-block";
+        state.selectionDockBlock = {
+          screenId: s.id,
+          kind: key === "head" ? "head" : key === "products" ? "products" : "panel",
+          panelIndex: key === "panel" && idx != null ? +idx : undefined,
+        };
+        renderSelectionDock();
+
         const elRect = el.getBoundingClientRect();
         const grabX = e.clientX - elRect.left;
         const grabY = e.clientY - elRect.top;
         const capId = e.pointerId;
 
-        function applyFromPointer(clientX, clientY) {
+        function scaleFactorsForInner() {
           const r = inner.getBoundingClientRect();
-          const w = Math.max(r.width, 1);
-          const h = Math.max(r.height, 1);
-          const x = clientX - r.left - grabX;
-          const y = clientY - r.top - grabY;
+          const ow = Math.max(inner.offsetWidth, 1);
+          const oh = Math.max(inner.offsetHeight, 1);
+          return { sx: r.width / ow, sy: r.height / oh, r };
+        }
+
+        const sf0 = scaleFactorsForInner();
+        const grabLayoutX = grabX / sf0.sx;
+        const grabLayoutY = grabY / sf0.sy;
+
+        function applyFromPointer(clientX, clientY) {
+          const { sx, sy, r } = scaleFactorsForInner();
+          const x = (clientX - r.left) / sx - grabLayoutX;
+          const y = (clientY - r.top) / sy - grabLayoutY;
+          const w = Math.max(inner.offsetWidth, 1);
+          const h = Math.max(inner.offsetHeight, 1);
           box.left = clamp((x / w) * 100, 0, 100);
           box.top = clamp((y / h) * 100, 0, 100);
           applyLayoutToEl(el, box);
@@ -294,6 +447,7 @@ function bindLayoutDragForScreen(inner, s) {
           }
           document.body.style.cursor = "";
           persist();
+          pushUndoHistory();
         }
 
         function onMove(ev) {
@@ -326,6 +480,51 @@ function syncLayoutDragToolbarLabel() {
   if (btn) btn.textContent = state.layoutDragMode ? "Modo arrastre: on" : "Modo arrastre: off";
 }
 
+function renderSelectionDock() {
+  const body = document.getElementById("selection-dock-body");
+  if (!body) return;
+  const focus = state.selectionDockFocus || "screen";
+  let html = "";
+
+  if (focus === "screen") {
+    const s = screenById(state.editScreenId);
+    if (s) {
+      const nPan = s.panels?.length ?? 0;
+      const nProd = s.products?.length ?? 0;
+      const free = s.layout ? `<p class="selection-dock-badge">Posición libre</p>` : "";
+      html = `<p class="selection-dock-title">Pantalla en edición</p>
+<p class="selection-dock-main">${escapeHtml(s.title)}</p>
+<p class="selection-dock-meta">ID <code>${escapeHtml(s.id)}</code></p>
+<p class="selection-dock-meta">${nPan} panel(es) · ${nProd} producto(s)</p>${free}`;
+    }
+  } else if (focus === "menu") {
+    const m = state.menu.find((x) => x.id === state.editMenuId);
+    if (m) {
+      html = `<p class="selection-dock-title">Enlace del menú</p>
+<p class="selection-dock-main">${escapeHtml(m.label)}</p>
+<p class="selection-dock-meta">Destino <code>${escapeHtml(m.targetScreenId)}</code></p>`;
+    }
+  } else if (focus === "preview-block" && state.selectionDockBlock) {
+    const b = state.selectionDockBlock;
+    const labels = { head: "Cabecera (título y subtítulo)", panel: "Panel de contenido", products: "Cuadrícula de productos" };
+    const scr = screenById(b.screenId);
+    let extra = "";
+    if (b.kind === "panel" && scr && b.panelIndex != null && scr.panels[b.panelIndex]) {
+      extra = `<p class="selection-dock-meta">“${escapeHtml(scr.panels[b.panelIndex].title)}”</p>`;
+    }
+    const idxLine =
+      b.kind === "panel" && b.panelIndex != null ? `<p class="selection-dock-meta">Panel n.º ${b.panelIndex + 1}</p>` : "";
+    html = `<p class="selection-dock-title">Bloque en vista previa</p>
+<p class="selection-dock-main">${labels[b.kind] || b.kind}</p>${idxLine}${extra}
+<p class="selection-dock-meta">Pantalla <code>${escapeHtml(b.screenId)}</code></p>`;
+  }
+
+  if (!html) {
+    html = `<p class="hint" style="margin:0">Selecciona una pantalla o un enlace en las listas de arriba, o un bloque con el modo arrastre.</p>`;
+  }
+  body.innerHTML = html;
+}
+
 /* ---------- Render lists ---------- */
 
 function renderScreenList() {
@@ -336,6 +535,8 @@ function renderScreenList() {
     li.className = "list-item" + (state.editScreenId === s.id ? " active" : "");
     li.innerHTML = `<span title="${escapeAttr(s.title)}">${escapeHtml(s.title)} <small style="opacity:.6">(${escapeHtml(s.id)})</small></span>`;
     li.addEventListener("click", () => {
+      state.selectionDockFocus = "screen";
+      state.selectionDockBlock = null;
       state.editScreenId = s.id;
       state.previewScreenId = s.id;
       renderAll();
@@ -372,9 +573,10 @@ function renderMenuList() {
     const span = document.createElement("span");
     span.innerHTML = `${escapeHtml(m.label)} → <small style="opacity:.8">${escapeHtml(m.targetScreenId)}</small>`;
     span.addEventListener("click", () => {
+      state.selectionDockFocus = "menu";
+      state.selectionDockBlock = null;
       state.editMenuId = m.id;
-      renderMenuList();
-      fillMenuEditPanel();
+      renderAll();
     });
     li.appendChild(span);
     const go = document.createElement("button");
@@ -386,9 +588,10 @@ function renderMenuList() {
     go.addEventListener("click", (e) => {
       e.stopPropagation();
       state.previewScreenId = m.targetScreenId;
-      renderPreview();
-      renderMenuList();
-      updatePreviewLabel();
+      state.selectionDockFocus = "screen";
+      state.selectionDockBlock = null;
+      state.editScreenId = m.targetScreenId;
+      renderAll();
     });
     const del = document.createElement("button");
     del.type = "button";
@@ -496,9 +699,10 @@ function renderPreview() {
     if (m.targetScreenId === state.previewScreenId) btn.classList.add("is-active");
     btn.addEventListener("click", () => {
       state.previewScreenId = m.targetScreenId;
-      renderPreview();
-      renderMenuList();
-      updatePreviewLabel();
+      state.selectionDockFocus = "screen";
+      state.selectionDockBlock = null;
+      state.editScreenId = m.targetScreenId;
+      renderAll();
     });
     nav.appendChild(btn);
   });
@@ -556,9 +760,21 @@ function renderPreview() {
     bindLayoutDragForScreen(screenInner, s);
   });
 
-  root.appendChild(inner);
+  const scaleWrap = document.createElement("div");
+  scaleWrap.className = "preview-scale-wrap";
+  const scaleInner = document.createElement("div");
+  scaleInner.className = "preview-scale-inner";
+  scaleInner.id = "preview-scale-inner";
+  scaleInner.appendChild(inner);
+  scaleWrap.appendChild(scaleInner);
+  root.appendChild(scaleWrap);
+
   updatePreviewLabel();
   syncLayoutDragToolbarLabel();
+  requestAnimationFrame(() => {
+    syncPreviewScale();
+    requestAnimationFrame(() => syncPreviewScale());
+  });
 }
 
 /* ---------- Edit form ---------- */
@@ -897,7 +1113,8 @@ document.getElementById("btn-load-demo").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   state = defaultState();
   renderAll();
-  persist();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  initUndoHistory();
 });
 
 let exportTab = "html";
@@ -1360,6 +1577,7 @@ function bindPreviewFullscreen() {
     const on = document.fullscreenElement === outer;
     btn.textContent = on ? "Salir de pantalla completa" : "Pantalla completa";
     if (hint) hint.hidden = !on;
+    syncPreviewScale();
   }
 
   btn.addEventListener("click", async () => {
@@ -1375,6 +1593,30 @@ function bindPreviewFullscreen() {
   });
   document.addEventListener("fullscreenchange", syncFsUi);
   syncFsUi();
+}
+
+function bindUndoRedo() {
+  const u = document.getElementById("btn-undo");
+  const r = document.getElementById("btn-redo");
+  if (u) u.addEventListener("click", () => undoAction());
+  if (r) r.addEventListener("click", () => redoAction());
+
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    if (t && (t.closest?.("input, textarea, [contenteditable=true]") || t.isContentEditable)) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undoAction();
+    } else if (mod && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
+      e.preventDefault();
+      redoAction();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    syncPreviewScale();
+  });
 }
 
 function bindFreeLayoutAndDrag() {
@@ -1409,6 +1651,7 @@ function renderAll() {
   renderPreview();
   fillEditForm();
   fillNavForm();
+  renderSelectionDock();
 }
 
 bindEditForm();
@@ -1416,4 +1659,6 @@ bindMenuEditPanel();
 bindNavForm();
 bindPreviewFullscreen();
 bindFreeLayoutAndDrag();
+bindUndoRedo();
 renderAll();
+initUndoHistory();
