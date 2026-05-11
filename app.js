@@ -245,42 +245,79 @@ function bindLayoutDragForScreen(inner, s) {
   if (!s.layout) return;
   inner.querySelectorAll("[data-drag-layout]").forEach((el) => {
     el.classList.toggle("layout-drag-target", !!state.layoutDragMode);
-    const onDown = (e) => {
-      if (!state.layoutDragMode || !s.layout) return;
-      e.preventDefault();
-      e.stopPropagation();
-      ensureScreenLayoutSync(s);
-      const key = el.dataset.dragLayout;
-      const idx = el.dataset.dragIndex;
-      /** @type {LayoutBox | undefined} */
-      let box;
-      if (key === "head") box = s.layout.head;
-      else if (key === "products") box = s.layout.products;
-      else if (key === "panel" && idx != null) box = s.layout.panels[+idx];
-      if (!box) return;
 
-      const rect = inner.getBoundingClientRect();
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const l0 = box.left;
-      const t0 = box.top;
+    el.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!state.layoutDragMode || !s.layout) return;
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
 
-      function move(ev) {
-        const dx = ((ev.clientX - startX) / rect.width) * 100;
-        const dy = ((ev.clientY - startY) / rect.height) * 100;
-        box.left = clamp(l0 + dx, 0, 92);
-        box.top = clamp(t0 + dy, 0, 92);
-        applyLayoutToEl(el, box);
-      }
-      function up() {
-        document.removeEventListener("mousemove", move);
-        document.removeEventListener("mouseup", up);
-        persist();
-      }
-      document.addEventListener("mousemove", move);
-      document.addEventListener("mouseup", up);
-    };
-    el.addEventListener("mousedown", onDown);
+        ensureScreenLayoutSync(s);
+        const key = el.dataset.dragLayout;
+        const idx = el.dataset.dragIndex;
+        /** @type {LayoutBox | undefined} */
+        let box;
+        if (key === "head") box = s.layout.head;
+        else if (key === "products") box = s.layout.products;
+        else if (key === "panel" && idx != null) box = s.layout.panels[+idx];
+        if (!box) return;
+
+        const elRect = el.getBoundingClientRect();
+        const grabX = e.clientX - elRect.left;
+        const grabY = e.clientY - elRect.top;
+        const capId = e.pointerId;
+
+        function applyFromPointer(clientX, clientY) {
+          const r = inner.getBoundingClientRect();
+          const w = Math.max(r.width, 1);
+          const h = Math.max(r.height, 1);
+          const x = clientX - r.left - grabX;
+          const y = clientY - r.top - grabY;
+          box.left = clamp((x / w) * 100, 0, 100);
+          box.top = clamp((y / h) * 100, 0, 100);
+          applyLayoutToEl(el, box);
+        }
+
+        let finished = false;
+        function teardown() {
+          if (finished) return;
+          finished = true;
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUpDoc);
+          document.removeEventListener("pointercancel", onUpDoc);
+          try {
+            el.releasePointerCapture(capId);
+          } catch (_) {
+            /* ignore */
+          }
+          document.body.style.cursor = "";
+          persist();
+        }
+
+        function onMove(ev) {
+          if (!state.layoutDragMode || finished) return;
+          ev.preventDefault();
+          applyFromPointer(ev.clientX, ev.clientY);
+        }
+
+        function onUpDoc() {
+          teardown();
+        }
+
+        document.body.style.cursor = "grabbing";
+        try {
+          el.setPointerCapture(capId);
+        } catch (_) {
+          /* sin captura seguimos con listeners en document */
+        }
+        document.addEventListener("pointermove", onMove, { passive: false });
+        document.addEventListener("pointerup", onUpDoc);
+        document.addEventListener("pointercancel", onUpDoc);
+      },
+      { passive: false }
+    );
   });
 }
 
