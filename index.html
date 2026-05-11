@@ -86,6 +86,9 @@
             <span class="preview-active" id="preview-active-label"></span>
           </div>
           <div class="preview-toolbar-actions">
+            <button type="button" class="btn btn-small btn-outline" id="btn-layout-drag-mode" title="Activa el arrastre de bloques en pantallas con posición libre">
+              Modo arrastre: off
+            </button>
             <button type="button" class="btn btn-small btn-outline" id="btn-preview-fullscreen" title="Ver a pantalla completa (Esc para salir)">
               Pantalla completa
             </button>
@@ -103,6 +106,14 @@
         <section class="panel-block">
           <h2>Editar pantalla</h2>
           <p class="hint" id="edit-screen-hint">Selecciona una pantalla en la lista.</p>
+
+          <label class="field check-field">
+            <span class="check-row">
+              <input type="checkbox" id="edit-free-layout" />
+              Posición libre — arrastra título, paneles y productos en la vista previa
+            </span>
+          </label>
+          <p class="hint" id="edit-free-layout-hint">Marca esto y enciende <strong>Modo arrastre</strong> en la barra de la vista previa. Las posiciones se guardan y se exportan en HTML/CSS (%).</p>
 
           <label class="field">
             <span>ID (clase CSS)</span>
